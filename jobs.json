@@ -10,6 +10,13 @@
         { "atLogon": true }
       ],
       "replaces": ["\\MindAttic\\Automata\\MindAttic.Automata.Tick", "MindAttic.Automata.Logon"]
+    },
+    {
+      "name": "Launcher.NightlyBackup",
+      "description": "Launcher nightly backup at midnight, keeping the newest 30. Runs while you are logged on; a missed midnight runs as soon as the machine is next available.",
+      "command": "\"C:\\Apps\\MindAttic.Launcher\\MindAttic.Launcher.exe\" backup --keep 30",
+      "schedule": { "daily": "00:00" },
+      "replaces": ["\\MindAttic\\Launcher\\MindAtticLauncherNightlyBackup", "MindAtticLauncherNightlyBackup"]
     }
   ]
 }

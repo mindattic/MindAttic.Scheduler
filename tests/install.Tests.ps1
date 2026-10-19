@@ -32,6 +32,18 @@ Describe 'jobs.json' {
         @($job.Schedule | Where-Object { $_.atLogon -eq $true }).Count | Should -Be 1
         ($job.Replaces | ForEach-Object { "$($_.Path)$($_.Name)" }) | Should -Contain '\MindAttic\Automata\MindAttic.Automata.Tick'
     }
+
+    It 'runs the Launcher nightly backup at midnight keeping 30, replacing the Launcher''s own task' {
+        $jobs = Read-JobManifest (Join-Path $PSScriptRoot '..\jobs.json')
+        $job = $jobs | Where-Object Name -eq 'Launcher.NightlyBackup'
+        $job | Should -Not -BeNullOrEmpty
+        $job.Command | Should -Match 'MindAttic\.Launcher\.exe" backup --keep 30$'
+        @($job.Schedule).Count | Should -Be 1
+        $job.Schedule[0].daily | Should -Be '00:00'
+        $replaced = $job.Replaces | ForEach-Object { "$($_.Path)$($_.Name)" }
+        $replaced | Should -Contain '\MindAttic\Launcher\MindAtticLauncherNightlyBackup'
+        $replaced | Should -Contain '\MindAtticLauncherNightlyBackup'
+    }
 }
 
 Describe 'Read-JobManifest validation' {
