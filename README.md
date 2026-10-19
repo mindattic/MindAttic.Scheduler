@@ -49,14 +49,39 @@ It is idempotent: rerun it after every edit to `jobs.json`.
 Every task gets: start when available (catch up a missed run), run on battery, and
 `MultipleInstances = IgnoreNew` (a run still going blocks the next one rather than piling up).
 
+## Jobs made at runtime
+
+Some apps create and cancel tasks while they run (Psst's reminders). They don't register tasks
+themselves; they call [`watchdog.ps1`](watchdog.ps1) (or the `watchdog.cmd` shim next to it):
+
+```powershell
+watchdog job add <name> --owner <app> (--at <time> | --every <hh:mm:ss>) --run <command>
+                 [--workdir <dir>] [--description <text>] [--replaces <task>]...
+watchdog job cancel <name> --owner <app>
+watchdog job list --owner <app> [--json]
+```
+
+- Each job lands at `\MindAttic\WatchDog\<owner>\<name>` and runs exactly like a manifest job:
+  `conhost.exe --headless`, the user's Interactive token, start when available, `IgnoreNew`.
+  `install.ps1` never touches these owner folders.
+- `--at` is one run at a local time (`yyyy-MM-ddTHH:mm` is safest) and must be in the future;
+  the task stays registered after it runs until the owner cancels it. `--every` repeats forever,
+  at least a minute apart, from the next minute. Adding a name that exists overwrites it.
+- `--replaces` takes over an older task the app registered itself, as in `jobs.json`.
+- `cancel` unregisters the task without stopping a run under way, so a job can cancel itself
+  as its last step. The owner's folder goes once its last job does.
+- `list --json` prints `[{name, owner, task, state, nextRun, lastRun, command}]`, times in local
+  ISO 8601.
+- Exit code 0 on success, 1 on any error, with the reason on stderr.
+
 ## Tests
 
 ```powershell
 Invoke-Pester .\tests
 ```
 
-The integration tests register real tasks under a scratch folder, `\MindAttic\WatchDog\Tests\`,
-and delete them when done.
+The integration tests register real tasks under a scratch folder, `\MindAttic\WatchDog\Tests\`
+(plus `\MindAttic\WatchDog\WatchDogTests\` for the command-line test), and delete them when done.
 
 ## Project docs
 
