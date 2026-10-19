@@ -58,6 +58,18 @@ Describe 'jobs.json' {
         $replaced | Should -Contain '\MindAttic\IdiotProof\IdiotProof Research Scan'
         $replaced | Should -Contain '\IdiotProof Research Scan'
     }
+
+    It 'refreshes Jellyfin posters daily at midnight from the repo folder, replacing JellyFinPoster''s own task' {
+        $jobs = Read-JobManifest (Join-Path $PSScriptRoot '..\jobs.json')
+        $job = $jobs | Where-Object Name -eq 'JellyFinPoster.Refresh'
+        $job | Should -Not -BeNullOrEmpty
+        $job.Command | Should -Match '^pythonw "[^"]+\\jellyfin_poster\.py"$'
+        $job.WorkingDirectory | Should -Be 'D:\Projects\MindAttic\JellyFinPoster'
+        @($job.Schedule | Where-Object { $_.daily -eq '00:00' }).Count | Should -Be 1
+        $replaced = $job.Replaces | ForEach-Object { "$($_.Path)$($_.Name)" }
+        $replaced | Should -Contain '\MindAttic\JellyFinPoster\JellyfinPosterRefresh'
+        $replaced | Should -Contain '\JellyfinPosterRefresh'
+    }
 }
 
 Describe 'Read-JobManifest validation' {

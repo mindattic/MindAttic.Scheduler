@@ -26,6 +26,14 @@
       "schedule": { "every": "01:00:00" },
       "timeLimit": "00:30:00",
       "replaces": ["\\MindAttic\\IdiotProof\\IdiotProof Research Scan", "IdiotProof Research Scan"]
+    },
+    {
+      "name": "JellyFinPoster.Refresh",
+      "description": "Refreshes the Jellyfin Movies/TV Shows library artwork from trending TMDB titles, daily at midnight; a missed run catches up on the next wake or logon.",
+      "command": "pythonw \"D:\\Projects\\MindAttic\\JellyFinPoster\\jellyfin_poster.py\"",
+      "workingDirectory": "D:\\Projects\\MindAttic\\JellyFinPoster",
+      "schedule": { "daily": "00:00" },
+      "replaces": ["\\MindAttic\\JellyFinPoster\\JellyfinPosterRefresh", "JellyfinPosterRefresh"]
     }
   ]
 }
