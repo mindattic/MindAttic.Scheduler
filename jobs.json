@@ -17,6 +17,15 @@
       "command": "\"C:\\Apps\\MindAttic.Launcher\\MindAttic.Launcher.exe\" backup --keep 30",
       "schedule": { "daily": "00:00" },
       "replaces": ["\\MindAttic\\Launcher\\MindAtticLauncherNightlyBackup", "MindAtticLauncherNightlyBackup"]
+    },
+    {
+      "name": "IdiotProof.ResearchScan",
+      "description": "IdiotProof research scanner: one scan pass an hour so the /research tab has fresh data. Runs as you (LocalDB and the Vault keyrings are user-scoped) while you are logged on. Publish it first: dotnet publish IdiotProof.ResearchScanner -c Release -o C:\\Apps\\IdiotProof\\ResearchScanner --no-self-contained.",
+      "command": "\"C:\\Apps\\IdiotProof\\ResearchScanner\\idiotproof-research-scanner.exe\"",
+      "workingDirectory": "C:\\Apps\\IdiotProof\\ResearchScanner",
+      "schedule": { "every": "01:00:00" },
+      "timeLimit": "00:30:00",
+      "replaces": ["\\MindAttic\\IdiotProof\\IdiotProof Research Scan", "IdiotProof Research Scan"]
     }
   ]
 }

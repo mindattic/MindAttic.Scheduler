@@ -44,6 +44,20 @@ Describe 'jobs.json' {
         $replaced | Should -Contain '\MindAttic\Launcher\MindAtticLauncherNightlyBackup'
         $replaced | Should -Contain '\MindAtticLauncherNightlyBackup'
     }
+
+    It 'runs IdiotProof''s research scan hourly, capped at 30 minutes, replacing IdiotProof''s own task and its stale root copy' {
+        $jobs = Read-JobManifest (Join-Path $PSScriptRoot '..\jobs.json')
+        $job = $jobs | Where-Object Name -eq 'IdiotProof.ResearchScan'
+        $job | Should -Not -BeNullOrEmpty
+        $job.Command | Should -Be '"C:\Apps\IdiotProof\ResearchScanner\idiotproof-research-scanner.exe"'
+        $job.WorkingDirectory | Should -Be 'C:\Apps\IdiotProof\ResearchScanner'
+        @($job.Schedule).Count | Should -Be 1
+        @($job.Schedule)[0].every | Should -Be '01:00:00'
+        $job.TimeLimit | Should -Be ([TimeSpan]::FromMinutes(30))
+        $replaced = $job.Replaces | ForEach-Object { "$($_.Path)$($_.Name)" }
+        $replaced | Should -Contain '\MindAttic\IdiotProof\IdiotProof Research Scan'
+        $replaced | Should -Contain '\IdiotProof Research Scan'
+    }
 }
 
 Describe 'Read-JobManifest validation' {
