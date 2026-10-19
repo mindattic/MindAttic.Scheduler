@@ -53,6 +53,12 @@ It is idempotent: rerun it after every edit to `jobs.json`.
 Every task gets: start when available (catch up a missed run), run on battery, and
 `MultipleInstances = IgnoreNew` (a run still going blocks the next one rather than piling up).
 
+A job with no app of its own to run keeps its script in [`scripts/`](scripts) and runs it from
+this repo's main checkout, e.g. `Lghub.LeakGuard` runs
+[`scripts/restart-lghub-agent.ps1`](scripts/restart-lghub-agent.ps1) hourly to restart Logitech
+G HUB's `lghub_agent` once it leaks past 2 GB (logged to
+`%LOCALAPPDATA%\MindAttic\WatchDog\lghub-agent-restarts.log`).
+
 ## Jobs made at runtime
 
 Some apps create and cancel tasks while they run (Psst's reminders). They don't register tasks

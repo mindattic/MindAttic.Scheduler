@@ -96,6 +96,19 @@ Describe 'jobs.json' {
         $job.TimeLimit | Should -Be ([TimeSpan]::Zero)
         ($job.Replaces | ForEach-Object { "$($_.Path)$($_.Name)" }) | Should -Contain '\MindAttic\UnstuckTaskbar\Logon'
     }
+
+    It 'guards against the G HUB agent leak hourly with the repo''s own script, replacing the root-level LghubWatchdog task' {
+        $jobs = Read-JobManifest (Join-Path $PSScriptRoot '..\jobs.json')
+        $job = $jobs | Where-Object Name -eq 'Lghub.LeakGuard'
+        $job | Should -Not -BeNullOrEmpty
+        $job.Command | Should -Be 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\Projects\MindAttic\MindAttic.WatchDog\scripts\restart-lghub-agent.ps1" -LimitGB 2'
+        $job.Command | Should -Not -Match 'LOCALAPPDATA|AppData'
+        Test-Path (Join-Path $PSScriptRoot '..\scripts\restart-lghub-agent.ps1') | Should -BeTrue
+        @($job.Schedule).Count | Should -Be 1
+        @($job.Schedule)[0].every | Should -Be '01:00:00'
+        $job.TimeLimit | Should -Be ([TimeSpan]::FromMinutes(2))
+        ($job.Replaces | ForEach-Object { "$($_.Path)$($_.Name)" }) | Should -Contain '\MindAttic LghubWatchdog'
+    }
 }
 
 Describe 'Read-JobManifest validation' {
