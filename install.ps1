@@ -10,7 +10,11 @@
        is removed if that leaves it empty.
     2. Each job is registered (or overwritten) at \MindAttic\WatchDog\<name> (HOUSE-LAW-11).
        Its action is 'conhost.exe --headless <command>', so no console window ever opens and
-       nothing steals focus, while the task keeps the user's ordinary Interactive token.
+       nothing steals focus, while the task keeps the user's ordinary Interactive token. A
+       GUI-subsystem program (a windowless WinExe daemon) never gets a console, and conhost would
+       hand it off and exit at once, so it is started directly and the task tracks the real process.
+       A 'keepRunning' job (a daemon) has no time limit, is restarted if it fails, and is started
+       on install if it isn't already running.
     3. Any task left directly in \MindAttic\WatchDog\ that the manifest no longer lists is
        unregistered. Subfolders (\MindAttic\WatchDog\<owner>\, used by runtime jobs) are left
        alone.
@@ -114,7 +118,14 @@ function Read-JobManifest([string]$Path, [string]$TaskPath = '\MindAttic\WatchDo
             $replaces += $old
         }
 
-        $timeLimit = if ($j.timeLimit) { ConvertTo-Span $j.timeLimit "Job '$name': timeLimit" } else { [TimeSpan]::FromHours(72) }
+        if ($null -ne $j.keepRunning -and $j.keepRunning -isnot [bool]) { throw "Job '$name': keepRunning must be true or false." }
+        $keepRunning = $j.keepRunning -eq $true
+        $timeLimit = if ($j.timeLimit) { ConvertTo-Span $j.timeLimit "Job '$name': timeLimit" }
+                     elseif ($keepRunning) { [TimeSpan]::Zero }
+                     else { [TimeSpan]::FromHours(72) }
+        if ($keepRunning -and $timeLimit -ne [TimeSpan]::Zero) {
+            throw "Job '$name': a keepRunning job can't have a timeLimit; it runs until it exits."
+        }
 
         $jobs += [pscustomobject]@{
             Name             = $name
@@ -124,6 +135,7 @@ function Read-JobManifest([string]$Path, [string]$TaskPath = '\MindAttic\WatchDo
             Schedule         = $schedule
             Replaces         = $replaces
             TimeLimit        = $timeLimit
+            KeepRunning      = $keepRunning
         }
     }
     , $jobs
@@ -148,17 +160,53 @@ function New-JobTriggers($Job) {
     }
 }
 
+function Split-CommandLine([string]$Command) {
+    # '"C:\A B\x.exe" --daemon' -> Program 'C:\A B\x.exe', Arguments '--daemon'.
+    $c = $Command.Trim()
+    if ($c -match '^"([^"]*)"\s*(.*)$' -or $c -match '^(\S+)\s*(.*)$') {
+        return [pscustomobject]@{ Program = $Matches[1]; Arguments = $Matches[2] }
+    }
+    [pscustomobject]@{ Program = $c; Arguments = '' }
+}
+
+function Test-GuiProgram([string]$Path) {
+    # True when $Path is a PE image of the Windows GUI subsystem (2). Anything else, including a
+    # program that isn't there yet, is treated as a console program.
+    try {
+        if (-not [IO.Path]::IsPathRooted($Path) -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+        $fs = [IO.File]::OpenRead($Path)
+        try {
+            $r = New-Object IO.BinaryReader $fs
+            if ($r.ReadUInt16() -ne 0x5A4D) { return $false }          # MZ
+            $fs.Position = 0x3C; $pe = $r.ReadInt32()
+            $fs.Position = $pe
+            if ($r.ReadUInt32() -ne 0x4550) { return $false }          # PE\0\0
+            $fs.Position = $pe + 24 + 68                               # optional header .Subsystem
+            return $r.ReadUInt16() -eq 2
+        }
+        finally { $fs.Dispose() }
+    }
+    catch { return $false }
+}
+
 function New-JobAction($Job) {
     # conhost --headless gives the command a console that is never shown, so a console exe run
-    # by an Interactive task neither flashes a window nor takes focus.
-    $conhost = Join-Path $env:SystemRoot 'System32\conhost.exe'
-    $argument = '--headless ' + $Job.Command
-    if ($Job.WorkingDirectory) {
-        New-ScheduledTaskAction -Execute $conhost -Argument $argument -WorkingDirectory $Job.WorkingDirectory
+    # by an Interactive task neither flashes a window nor takes focus. A GUI-subsystem program
+    # gets no console anyway, and conhost would start it and exit at once (leaving the task
+    # 'finished' while the program runs untracked), so it is started directly.
+    $parts = Split-CommandLine $Job.Command
+    if (Test-GuiProgram $parts.Program) {
+        $execute = $parts.Program
+        $argument = $parts.Arguments
     }
     else {
-        New-ScheduledTaskAction -Execute $conhost -Argument $argument
+        $execute = Join-Path $env:SystemRoot 'System32\conhost.exe'
+        $argument = '--headless ' + $Job.Command
     }
+    $a = @{ Execute = $execute }
+    if ($argument) { $a.Argument = $argument }
+    if ($Job.WorkingDirectory) { $a.WorkingDirectory = $Job.WorkingDirectory }
+    New-ScheduledTaskAction @a
 }
 
 function Remove-EmptyTaskFolder([string]$Folder) {
@@ -204,13 +252,29 @@ function Install-WatchDogJobs {
     $principal = New-ScheduledTaskPrincipal -UserId (Get-CurrentUserId) -LogonType Interactive -RunLevel Limited
     foreach ($job in $jobs) {
         if (-not $PSCmdlet.ShouldProcess("$folder$($job.Name)", 'register')) { continue }
+        $settingsArgs = @{}
+        if ($job.KeepRunning) {
+            # A daemon: restarted if it fails, like the app-registered tasks it replaces.
+            $settingsArgs.RestartCount = 3
+            $settingsArgs.RestartInterval = [TimeSpan]::FromMinutes(1)
+        }
         $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-            -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit $job.TimeLimit
+            -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit $job.TimeLimit @settingsArgs
         $description = if ($job.Description) { "$($job.Description)`n`n$script:ManagedMarker" } else { $script:ManagedMarker }
         Register-ScheduledTask -TaskPath $folder -TaskName $job.Name `
             -Action (New-JobAction $job) -Trigger @(New-JobTriggers $job) `
             -Principal $principal -Settings $settings -Description $description -Force | Out-Null
         Write-Output "  registered $folder$($job.Name)"
+
+        # A daemon shouldn't wait for the next logon, least of all right after its old task was
+        # stopped above.
+        if ($job.KeepRunning) {
+            $state = (Get-ScheduledTask -TaskPath $folder -TaskName $job.Name).State
+            if ($state -ne 'Running' -and $PSCmdlet.ShouldProcess("$folder$($job.Name)", 'start')) {
+                Start-ScheduledTask -TaskPath $folder -TaskName $job.Name
+                Write-Output "  started $folder$($job.Name)"
+            }
+        }
     }
 
     # 3. Unregister WatchDog tasks the manifest no longer lists (this folder only, not subfolders).

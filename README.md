@@ -8,7 +8,10 @@ Scheduled Task its own way, each job is a line in [`jobs.json`](jobs.json) and
   ([HOUSE-LAW-11](../MindAttic.HouseRules.md#HOUSE-LAW-11));
 - every job runs through `conhost.exe --headless`, so a console program never opens a window or
   steals focus, and the task keeps the user's ordinary Interactive token (no S4U, no stored
-  password, no elevation);
+  password, no elevation). The one exception is a GUI-subsystem program (a windowless WinExe
+  daemon such as the Orchestrator's): it never gets a console, and conhost would hand it off and
+  exit at once, so it is started directly and the task tracks the real process. That is read from
+  the exe's header at install time; if the exe isn't there yet, rerun the install once it is;
 - the older copies a job lists under `replaces` are stopped and unregistered, and their folder is
   removed once it is empty;
 - any task directly in `\MindAttic\WatchDog\` that the manifest no longer lists is unregistered.
@@ -45,6 +48,7 @@ It is idempotent: rerun it after every edit to `jobs.json`.
 | `workingDirectory` | no | Start-in folder; `%VAR%` expanded. |
 | `description` | no | Shown in Task Scheduler above the "managed by WatchDog" note. |
 | `timeLimit` | no | Kill the run after this long (`hh:mm:ss`, `00:00:00` = never). Default 72 hours, the Windows default. |
+| `keepRunning` | no | `true` for a daemon: no time limit (a `timeLimit` is refused), restarted up to 3 times a minute apart if it fails, and started by the install if it isn't running, so retiring its old task doesn't leave it down until the next logon. |
 
 Every task gets: start when available (catch up a missed run), run on battery, and
 `MultipleInstances = IgnoreNew` (a run still going blocks the next one rather than piling up).

@@ -1,5 +1,5 @@
 {
-  "$comment": "Every MindAttic scheduled job. install.ps1 registers each one under \\MindAttic\\WatchDog\\ (HOUSE-LAW-11), wrapped in conhost --headless. See README.md for the fields.",
+  "$comment": "Every MindAttic scheduled job. install.ps1 registers each one under \\MindAttic\\WatchDog\\ (HOUSE-LAW-11), wrapped in conhost --headless (a GUI-subsystem program is started directly). See README.md for the fields.",
   "jobs": [
     {
       "name": "Automata.Tick",
@@ -34,6 +34,15 @@
       "workingDirectory": "D:\\Projects\\MindAttic\\JellyFinPoster",
       "schedule": { "daily": "00:00" },
       "replaces": ["\\MindAttic\\JellyFinPoster\\JellyfinPosterRefresh", "JellyfinPosterRefresh"]
+    },
+    {
+      "name": "Orchestrator.Daemon",
+      "description": "MindAttic Orchestrator daemon: started at logon and kept running (no time limit, restarted if it fails). Windowless; the dashboard finds it through its mutex.",
+      "command": "\"C:\\Apps\\MindAttic.Orchestrator\\MindAttic.Orchestrator.exe\" --daemon",
+      "workingDirectory": "C:\\Apps\\MindAttic.Orchestrator",
+      "schedule": { "atLogon": true },
+      "keepRunning": true,
+      "replaces": ["\\MindAttic\\Orchestrator\\Orchestrator daemon"]
     }
   ]
 }
