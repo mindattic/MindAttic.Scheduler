@@ -22,6 +22,16 @@ Describe 'jobs.json' {
     It 'is a valid manifest' {
         { Read-JobManifest (Join-Path $PSScriptRoot '..\jobs.json') } | Should -Not -Throw
     }
+
+    It 'runs Automata''s tick every 5 minutes and at logon, replacing Automata''s own task' {
+        $jobs = Read-JobManifest (Join-Path $PSScriptRoot '..\jobs.json')
+        $job = $jobs | Where-Object Name -eq 'Automata.Tick'
+        $job | Should -Not -BeNullOrEmpty
+        $job.Command | Should -Match 'automata-runner\.exe" tick$'
+        @($job.Schedule | Where-Object { $_.every -eq '00:05:00' }).Count | Should -Be 1
+        @($job.Schedule | Where-Object { $_.atLogon -eq $true }).Count | Should -Be 1
+        ($job.Replaces | ForEach-Object { "$($_.Path)$($_.Name)" }) | Should -Contain '\MindAttic\Automata\MindAttic.Automata.Tick'
+    }
 }
 
 Describe 'Read-JobManifest validation' {

@@ -28,9 +28,9 @@ It is idempotent: rerun it after every edit to `jobs.json`.
   "jobs": [
     {
       "name": "Automata.Tick",
-      "command": "\"%LOCALAPPDATA%\\MindAttic\\Automata\\automata-runner.exe\" tick",
-      "schedule": { "every": "00:05:00" },
-      "replaces": ["\\MindAttic\\Automata\\MindAttic.Automata.Tick"]
+      "command": "\"D:\\Projects\\MindAttic\\Automata\\Automata.Runner\\bin\\Debug\\net10.0-windows\\automata-runner.exe\" tick",
+      "schedule": [{ "every": "00:05:00" }, { "atLogon": true }],
+      "replaces": ["\\MindAttic\\Automata\\MindAttic.Automata.Tick", "MindAttic.Automata.Logon"]
     }
   ]
 }

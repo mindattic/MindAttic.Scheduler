@@ -1,4 +1,15 @@
 {
   "$comment": "Every MindAttic scheduled job. install.ps1 registers each one under \\MindAttic\\WatchDog\\ (HOUSE-LAW-11), wrapped in conhost --headless. See README.md for the fields.",
-  "jobs": []
+  "jobs": [
+    {
+      "name": "Automata.Tick",
+      "description": "Automata heartbeat: resumes parked runs and runs whatever is due. Runs only while you are logged on, because browser lanes cannot render in session 0.",
+      "command": "\"D:\\Projects\\MindAttic\\Automata\\Automata.Runner\\bin\\Debug\\net10.0-windows\\automata-runner.exe\" tick",
+      "schedule": [
+        { "every": "00:05:00" },
+        { "atLogon": true }
+      ],
+      "replaces": ["\\MindAttic\\Automata\\MindAttic.Automata.Tick", "MindAttic.Automata.Logon"]
+    }
+  ]
 }
