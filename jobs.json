@@ -43,6 +43,15 @@
       "schedule": { "atLogon": true },
       "keepRunning": true,
       "replaces": ["\\MindAttic\\Orchestrator\\Orchestrator daemon"]
+    },
+    {
+      "name": "UnstuckTaskbar",
+      "description": "UnstuckTaskbar tray icon and global hotkey for /unstuck: started at logon and kept running (no time limit, restarted if it fails).",
+      "command": "\"C:\\Apps\\Unstuck\\UnstuckTaskbar.exe\"",
+      "workingDirectory": "C:\\Apps\\Unstuck",
+      "schedule": { "atLogon": true },
+      "keepRunning": true,
+      "replaces": ["\\MindAttic\\UnstuckTaskbar\\Logon"]
     }
   ]
 }

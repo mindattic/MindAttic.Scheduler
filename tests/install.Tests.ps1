@@ -83,6 +83,19 @@ Describe 'jobs.json' {
         $job.TimeLimit | Should -Be ([TimeSpan]::Zero)
         ($job.Replaces | ForEach-Object { "$($_.Path)$($_.Name)" }) | Should -Contain '\MindAttic\Orchestrator\Orchestrator daemon'
     }
+
+    It 'runs UnstuckTaskbar at logon and keeps it running, replacing UnstuckTaskbar''s own logon task' {
+        $jobs = Read-JobManifest (Join-Path $PSScriptRoot '..\jobs.json')
+        $job = $jobs | Where-Object Name -eq 'UnstuckTaskbar'
+        $job | Should -Not -BeNullOrEmpty
+        $job.Command | Should -Be '"C:\Apps\Unstuck\UnstuckTaskbar.exe"'
+        $job.WorkingDirectory | Should -Be 'C:\Apps\Unstuck'
+        @($job.Schedule).Count | Should -Be 1
+        $job.Schedule[0].atLogon | Should -BeTrue
+        $job.KeepRunning | Should -BeTrue
+        $job.TimeLimit | Should -Be ([TimeSpan]::Zero)
+        ($job.Replaces | ForEach-Object { "$($_.Path)$($_.Name)" }) | Should -Contain '\MindAttic\UnstuckTaskbar\Logon'
+    }
 }
 
 Describe 'Read-JobManifest validation' {
