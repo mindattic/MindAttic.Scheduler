@@ -1,0 +1,4 @@
+{
+  "$comment": "Every MindAttic scheduled job. install.ps1 registers each one under \\MindAttic\\WatchDog\\ (HOUSE-LAW-11), wrapped in conhost --headless. See README.md for the fields.",
+  "jobs": []
+}
