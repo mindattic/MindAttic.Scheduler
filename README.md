@@ -4,7 +4,7 @@ One home for every MindAttic scheduled job. Instead of each app registering its 
 Scheduled Task its own way, each job is a line in [`jobs.json`](jobs.json) and
 [`install.ps1`](install.ps1) makes the Task Scheduler match it:
 
-- every job is registered at `\MindAttic\WatchDog\<name>`
+- every job is registered at `\MindAttic\Scheduler\<name>`
   ([HOUSE-LAW-11](../MindAttic.HouseRules.md#HOUSE-LAW-11));
 - every job runs through `conhost.exe --headless`, so a console program never opens a window or
   steals focus, and the task keeps the user's ordinary Interactive token (no S4U, no stored
@@ -14,8 +14,8 @@ Scheduled Task its own way, each job is a line in [`jobs.json`](jobs.json) and
   the exe's header at install time; if the exe isn't there yet, rerun the install once it is;
 - the older copies a job lists under `replaces` are stopped and unregistered, and their folder is
   removed once it is empty;
-- any task directly in `\MindAttic\WatchDog\` that the manifest no longer lists is unregistered.
-  Subfolders (`\MindAttic\WatchDog\<owner>\`, for jobs apps create at runtime) are left alone.
+- any task directly in `\MindAttic\Scheduler\` that the manifest no longer lists is unregistered.
+  Subfolders (`\MindAttic\Scheduler\<owner>\`, for jobs apps create at runtime) are left alone.
 
 It is idempotent: rerun it after every edit to `jobs.json`.
 
@@ -41,7 +41,7 @@ It is idempotent: rerun it after every edit to `jobs.json`.
 
 | Field | Required | Meaning |
 |---|---|---|
-| `name` | yes | Task name under `\MindAttic\WatchDog\`. Letters, digits, `.`, `_`, `-`, space; unique. |
+| `name` | yes | Task name under `\MindAttic\Scheduler\`. Letters, digits, `.`, `_`, `-`, space; unique. |
 | `command` | yes | The full command line (program, quoted if it has spaces, then its arguments). `%VAR%` environment variables are expanded at install time. |
 | `schedule` | yes | One entry or a list of them. Each entry has exactly one of: `{"every": "hh:mm:ss"}` (repeat forever, at least a minute apart), `{"daily": "HH:mm"}`, `{"atLogon": true}`. |
 | `replaces` | no | Tasks this job takes over from, as full paths (`\MindAttic\Launcher\MindAtticLauncherNightlyBackup`) or bare names for root-level tasks. They are removed on install. |
@@ -57,7 +57,7 @@ A job with no app of its own to run keeps its script in [`scripts/`](scripts) an
 this repo's main checkout, e.g. `Lghub.LeakGuard` runs
 [`scripts/restart-lghub-agent.ps1`](scripts/restart-lghub-agent.ps1) hourly to restart Logitech
 G HUB's `lghub_agent` once it leaks past 2 GB (logged to
-`%LOCALAPPDATA%\MindAttic\WatchDog\lghub-agent-restarts.log`).
+`%LOCALAPPDATA%\MindAttic\Scheduler\lghub-agent-restarts.log`).
 
 ## Jobs made at runtime
 
@@ -71,7 +71,7 @@ scheduler job cancel <name> --owner <app>
 scheduler job list --owner <app> [--json]
 ```
 
-- Each job lands at `\MindAttic\WatchDog\<owner>\<name>` and runs exactly like a manifest job:
+- Each job lands at `\MindAttic\Scheduler\<owner>\<name>` and runs exactly like a manifest job:
   `conhost.exe --headless`, the user's Interactive token, start when available, `IgnoreNew`.
   `install.ps1` never touches these owner folders.
 - `--at` is one run at a local time (`yyyy-MM-ddTHH:mm` is safest) and must be in the future;
@@ -90,8 +90,8 @@ scheduler job list --owner <app> [--json]
 Invoke-Pester .\tests
 ```
 
-The integration tests register real tasks under a scratch folder, `\MindAttic\WatchDog\Tests\`
-(plus `\MindAttic\WatchDog\WatchDogTests\` for the command-line test), and delete them when done.
+The integration tests register real tasks under a scratch folder, `\MindAttic\Scheduler\Tests\`
+(plus `\MindAttic\Scheduler\SchedulerTests\` for the command-line test), and delete them when done.
 
 ## Project docs
 

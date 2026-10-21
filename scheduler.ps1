@@ -11,7 +11,7 @@
     scheduler job cancel <name> --owner <app>
     scheduler job list --owner <app> [--json]
 
-  Each job is registered at \MindAttic\WatchDog\<owner>\<name>, the same way install.ps1
+  Each job is registered at \MindAttic\Scheduler\<owner>\<name>, the same way install.ps1
   registers manifest jobs: run through 'conhost.exe --headless' (no window, no focus stolen),
   as the current user, Interactive, limited rights. 'add' overwrites a job of the same name.
 
@@ -36,7 +36,7 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'install.ps1')
 
-$script:JobRoot = '\MindAttic\WatchDog\'
+$script:JobRoot = '\MindAttic\Scheduler\'
 $script:RuntimeMarker = 'Created at runtime through MindAttic.Scheduler (scheduler job add). Cancel it with scheduler job cancel; do not edit this task by hand.'
 
 function Test-JobName([string]$Value, [string]$What) {

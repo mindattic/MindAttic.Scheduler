@@ -11,12 +11,12 @@
   Restart the agent once its private memory reaches this many GB. Default 2.
 
 .PARAMETER LogPath
-  Where restarts are logged. Default %LOCALAPPDATA%\MindAttic\WatchDog\lghub-agent-restarts.log.
+  Where restarts are logged. Default %LOCALAPPDATA%\MindAttic\Scheduler\lghub-agent-restarts.log.
 #>
 [CmdletBinding()]
 param(
     [double]$LimitGB = 2,
-    [string]$LogPath = (Join-Path $env:LOCALAPPDATA 'MindAttic\WatchDog\lghub-agent-restarts.log'),
+    [string]$LogPath = (Join-Path $env:LOCALAPPDATA 'MindAttic\Scheduler\lghub-agent-restarts.log'),
     [string]$ProcessName = 'lghub_agent'
 )
 

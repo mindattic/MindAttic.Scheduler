@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Register every job in jobs.json as a Windows Scheduled Task under \MindAttic\WatchDog\.
+  Register every job in jobs.json as a Windows Scheduled Task under \MindAttic\Scheduler\.
 
 .DESCRIPTION
   Idempotent: run it as often as you like and the scheduler ends up matching the manifest.
@@ -8,15 +8,15 @@
     1. For each job, every task named in its 'replaces' list (an older copy registered by the
        app that used to own the job) is stopped and unregistered, and the folder it lived in
        is removed if that leaves it empty.
-    2. Each job is registered (or overwritten) at \MindAttic\WatchDog\<name> (HOUSE-LAW-11).
+    2. Each job is registered (or overwritten) at \MindAttic\Scheduler\<name> (HOUSE-LAW-11).
        Its action is 'conhost.exe --headless <command>', so no console window ever opens and
        nothing steals focus, while the task keeps the user's ordinary Interactive token. A
        GUI-subsystem program (a windowless WinExe daemon) never gets a console, and conhost would
        hand it off and exit at once, so it is started directly and the task tracks the real process.
        A 'keepRunning' job (a daemon) has no time limit, is restarted if it fails, and is started
        on install if it isn't already running.
-    3. Any task left directly in \MindAttic\WatchDog\ that the manifest no longer lists is
-       unregistered. Subfolders (\MindAttic\WatchDog\<owner>\, used by runtime jobs) are left
+    3. Any task left directly in \MindAttic\Scheduler\ that the manifest no longer lists is
+       unregistered. Subfolders (\MindAttic\Scheduler\<owner>\, used by runtime jobs) are left
        alone.
 
   No elevation is needed: every task runs as the current user, Interactive, limited rights.
@@ -35,7 +35,7 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [string]$Manifest,
-    [string]$TaskPath = '\MindAttic\WatchDog\'
+    [string]$TaskPath = '\MindAttic\Scheduler\'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -89,7 +89,7 @@ function Test-ScheduleEntry($Entry, [string]$Job) {
     }
 }
 
-function Read-JobManifest([string]$Path, [string]$TaskPath = '\MindAttic\WatchDog\') {
+function Read-JobManifest([string]$Path, [string]$TaskPath = '\MindAttic\Scheduler\') {
     if (-not (Test-Path -LiteralPath $Path)) { throw "Manifest not found: $Path" }
     $doc = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
     $folder = ConvertTo-TaskFolder $TaskPath

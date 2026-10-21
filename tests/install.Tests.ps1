@@ -1,10 +1,10 @@
 # Pester tests for install.ps1. Run: Invoke-Pester .\tests
 # The integration block registers real tasks, but only under a scratch folder
-# (\MindAttic\WatchDog\Tests\), and deletes them afterwards. No elevation needed.
+# (\MindAttic\Scheduler\Tests\), and deletes them afterwards. No elevation needed.
 
 BeforeAll {
     . (Join-Path $PSScriptRoot '..\install.ps1')
-    $script:Scratch = Join-Path ([IO.Path]::GetTempPath()) ('watchdog-tests-' + [guid]::NewGuid().ToString('N'))
+    $script:Scratch = Join-Path ([IO.Path]::GetTempPath()) ('scheduler-tests-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $script:Scratch | Out-Null
 
     function Write-Manifest([object[]]$Jobs) {
@@ -101,7 +101,7 @@ Describe 'jobs.json' {
         $jobs = Read-JobManifest (Join-Path $PSScriptRoot '..\jobs.json')
         $job = $jobs | Where-Object Name -eq 'Lghub.LeakGuard'
         $job | Should -Not -BeNullOrEmpty
-        $job.Command | Should -Be 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\Projects\MindAttic\MindAttic.WatchDog\scripts\restart-lghub-agent.ps1" -LimitGB 2'
+        $job.Command | Should -Be 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\Projects\MindAttic\MindAttic.Scheduler\scripts\restart-lghub-agent.ps1" -LimitGB 2'
         $job.Command | Should -Not -Match 'LOCALAPPDATA|AppData'
         Test-Path (Join-Path $PSScriptRoot '..\scripts\restart-lghub-agent.ps1') | Should -BeTrue
         @($job.Schedule).Count | Should -Be 1
@@ -135,7 +135,7 @@ Describe 'Read-JobManifest validation' {
         @{ case = 'a bad daily time';      jobs = @(@{ name = 'A'; command = 'a'; schedule = @{ daily = '25:00' } }) }
         @{ case = 'a sub-minute interval'; jobs = @(@{ name = 'A'; command = 'a'; schedule = @{ every = '00:00:30' } }) }
         @{ case = 'a backslash in a name'; jobs = @(@{ name = 'A\B'; command = 'a'; schedule = @{ atLogon = $true } }) }
-        @{ case = 'replacing a WatchDog task'; jobs = @(@{ name = 'A'; command = 'a'; schedule = @{ atLogon = $true }; replaces = @('\MindAttic\WatchDog\Other') }) }
+        @{ case = 'replacing a Scheduler task'; jobs = @(@{ name = 'A'; command = 'a'; schedule = @{ atLogon = $true }; replaces = @('\MindAttic\Scheduler\Other') }) }
         @{ case = 'keepRunning with a timeLimit'; jobs = @(@{ name = 'A'; command = 'a'; schedule = @{ atLogon = $true }; keepRunning = $true; timeLimit = '01:00:00' }) }
         @{ case = 'a non-boolean keepRunning'; jobs = @(@{ name = 'A'; command = 'a'; schedule = @{ atLogon = $true }; keepRunning = 'yes' }) }
     ) {
@@ -178,8 +178,8 @@ Describe 'Split-TaskFullName' {
 
 Describe 'Install-SchedulerJobs against the real Task Scheduler' {
     BeforeAll {
-        $script:Folder = '\MindAttic\WatchDog\Tests\'
-        $script:OldFolder = '\MindAttic\WatchDogTestsOld\'
+        $script:Folder = '\MindAttic\Scheduler\Tests\'
+        $script:OldFolder = '\MindAttic\SchedulerTestsOld\'
         $script:Cmd = 'cmd.exe /c exit 0'
         function Get-Tasks($path) { @(Get-ScheduledTask -TaskPath $path -ErrorAction SilentlyContinue | Where-Object TaskPath -eq $path) }
         function Remove-Folder($path) {

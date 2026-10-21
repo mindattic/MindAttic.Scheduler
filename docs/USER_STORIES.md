@@ -1,6 +1,6 @@
 ---
 codex: 1
-project: MindAttic.Watchdog
+project: MindAttic.Scheduler
 code: M.SCHD
 layer: stories
 status: living
@@ -8,7 +8,7 @@ updated: 2026-10-18
 ---
 <!-- GENERATED from MindAttic.Tickets/data/Tickets.db by `tickets db render`. Do not edit: this file is rewritten from the database; change stories and tickets with the tickets CLI. -->
 
-# MindAttic.Watchdog — User Stories
+# MindAttic.Scheduler — User Stories
 > ✅ done (shipped & tested) · 🟡 partial · ⬜ planned. Every ✅ cites the test.
 
 ## Priority backlog

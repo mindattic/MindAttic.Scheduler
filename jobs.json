@@ -1,5 +1,5 @@
 {
-  "$comment": "Every MindAttic scheduled job (MindAttic.Scheduler, formerly MindAttic.WatchDog). install.ps1 registers each one under \\MindAttic\\WatchDog\\ (HOUSE-LAW-11), wrapped in conhost --headless (a GUI-subsystem program is started directly). See README.md for the fields.",
+  "$comment": "Every MindAttic scheduled job (MindAttic.Scheduler, formerly MindAttic.WatchDog). install.ps1 registers each one under \\MindAttic\\Scheduler\\ (HOUSE-LAW-11), wrapped in conhost --headless (a GUI-subsystem program is started directly). See README.md for the fields.",
   "jobs": [
     {
       "name": "Automata.Tick",
@@ -55,8 +55,8 @@
     },
     {
       "name": "Lghub.LeakGuard",
-      "description": "Restarts Logitech G HUB's lghub_agent once it leaks past 2 GB of private memory, hourly (lghub_system_tray relaunches it within seconds). Restarts are logged to %LOCALAPPDATA%\\MindAttic\\WatchDog\\lghub-agent-restarts.log.",
-      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\MindAttic.WatchDog\\scripts\\restart-lghub-agent.ps1\" -LimitGB 2",
+      "description": "Restarts Logitech G HUB's lghub_agent once it leaks past 2 GB of private memory, hourly (lghub_system_tray relaunches it within seconds). Restarts are logged to %LOCALAPPDATA%\\MindAttic\\Scheduler\\lghub-agent-restarts.log.",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\MindAttic.Scheduler\\scripts\\restart-lghub-agent.ps1\" -LimitGB 2",
       "schedule": { "every": "01:00:00" },
       "timeLimit": "00:02:00",
       "replaces": ["MindAttic LghubWatchdog"]

@@ -1,6 +1,6 @@
 # Pester tests for scheduler.ps1 (scheduler job add / cancel / list). Run: Invoke-Pester .\tests
 # The integration block registers real tasks, but only under a scratch root
-# (\MindAttic\WatchDog\Tests\), and deletes them afterwards. No elevation needed.
+# (\MindAttic\Scheduler\Tests\), and deletes them afterwards. No elevation needed.
 
 BeforeAll {
     $script:Scheduler = Join-Path $PSScriptRoot '..\scheduler.ps1'
@@ -34,7 +34,7 @@ Describe 'Invoke-SchedulerCommand validation' {
         @{ case = 'a backslash in a name';    argv = @('job', 'add', 'A\B', '--owner', 'O', '--every', '00:05:00', '--run', 'x') }
         @{ case = 'a backslash in an owner';  argv = @('job', 'list', '--owner', 'O\P') }
         @{ case = 'an unknown option';        argv = @('job', 'list', '--owner', 'O', '--frob', 'x') }
-        @{ case = 'replacing a Scheduler task'; argv = @('job', 'add', 'A', '--owner', 'O', '--every', '00:05:00', '--run', 'x', '--replaces', '\MindAttic\WatchDog\Automata.Tick') }
+        @{ case = 'replacing a Scheduler task'; argv = @('job', 'add', 'A', '--owner', 'O', '--every', '00:05:00', '--run', 'x', '--replaces', '\MindAttic\Scheduler\Automata.Tick') }
     ) {
         { Invoke-SchedulerCommand $argv } | Should -Throw
     }
@@ -50,10 +50,10 @@ Describe 'ConvertTo-FireTime' {
 
 Describe 'scheduler job against the real Task Scheduler' {
     BeforeAll {
-        $script:Root = '\MindAttic\WatchDog\Tests\'
+        $script:Root = '\MindAttic\Scheduler\Tests\'
         $script:Owner = 'JobApi'
         $script:Folder = "$($script:Root)$($script:Owner)\"
-        $script:OldFolder = '\MindAttic\WatchDogJobApiTestsOld\'
+        $script:OldFolder = '\MindAttic\SchedulerJobApiTestsOld\'
         function Get-Tasks($path) { @(Get-ScheduledTask -TaskPath $path -ErrorAction SilentlyContinue | Where-Object TaskPath -eq $path) }
         function Remove-Folder($path) {
             Get-Tasks $path | ForEach-Object { Unregister-ScheduledTask -TaskPath $path -TaskName $_.TaskName -Confirm:$false }
@@ -133,6 +133,6 @@ Describe 'scheduler job against the real Task Scheduler' {
             & $exe -NoProfile -ExecutionPolicy Bypass -File $script:Scheduler job cancel Cli --owner $owner 2>$null | Out-Null
             $LASTEXITCODE | Should -Be 1
         }
-        finally { Remove-Folder "\MindAttic\WatchDog\$owner\" }
+        finally { Remove-Folder "\MindAttic\Scheduler\$owner\" }
     }
 }
