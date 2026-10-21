@@ -1,10 +1,10 @@
-# Pester tests for watchdog.ps1 (watchdog job add / cancel / list). Run: Invoke-Pester .\tests
+# Pester tests for scheduler.ps1 (scheduler job add / cancel / list). Run: Invoke-Pester .\tests
 # The integration block registers real tasks, but only under a scratch root
 # (\MindAttic\WatchDog\Tests\), and deletes them afterwards. No elevation needed.
 
 BeforeAll {
-    $script:WatchDog = Join-Path $PSScriptRoot '..\watchdog.ps1'
-    . $script:WatchDog
+    $script:Scheduler = Join-Path $PSScriptRoot '..\scheduler.ps1'
+    . $script:Scheduler
 }
 
 Describe 'Read-JobArguments' {
@@ -21,7 +21,7 @@ Describe 'Read-JobArguments' {
     }
 }
 
-Describe 'Invoke-WatchDogCommand validation' {
+Describe 'Invoke-SchedulerCommand validation' {
     It 'rejects <case>' -ForEach @(
         @{ case = 'no verb';                  argv = @('job') }
         @{ case = 'an unknown verb';          argv = @('job', 'frob') }
@@ -34,9 +34,9 @@ Describe 'Invoke-WatchDogCommand validation' {
         @{ case = 'a backslash in a name';    argv = @('job', 'add', 'A\B', '--owner', 'O', '--every', '00:05:00', '--run', 'x') }
         @{ case = 'a backslash in an owner';  argv = @('job', 'list', '--owner', 'O\P') }
         @{ case = 'an unknown option';        argv = @('job', 'list', '--owner', 'O', '--frob', 'x') }
-        @{ case = 'replacing a WatchDog task'; argv = @('job', 'add', 'A', '--owner', 'O', '--every', '00:05:00', '--run', 'x', '--replaces', '\MindAttic\WatchDog\Automata.Tick') }
+        @{ case = 'replacing a Scheduler task'; argv = @('job', 'add', 'A', '--owner', 'O', '--every', '00:05:00', '--run', 'x', '--replaces', '\MindAttic\WatchDog\Automata.Tick') }
     ) {
-        { Invoke-WatchDogCommand $argv } | Should -Throw
+        { Invoke-SchedulerCommand $argv } | Should -Throw
     }
 }
 
@@ -48,7 +48,7 @@ Describe 'ConvertTo-FireTime' {
     }
 }
 
-Describe 'watchdog job against the real Task Scheduler' {
+Describe 'scheduler job against the real Task Scheduler' {
     BeforeAll {
         $script:Root = '\MindAttic\WatchDog\Tests\'
         $script:Owner = 'JobApi'
@@ -77,10 +77,10 @@ Describe 'watchdog job against the real Task Scheduler' {
             -Trigger (New-ScheduledTaskTrigger -Once -At (Get-Date).AddDays(1)) | Out-Null
 
         $at = (Get-Date).AddDays(1).Date.AddHours(9).AddMinutes(30)
-        Add-WatchDogJob -Name 'Once' -Owner $script:Owner -At $at -Command 'cmd.exe /c "C:\A Dir\x.cmd"' `
+        Add-SchedulerJob -Name 'Once' -Owner $script:Owner -At $at -Command 'cmd.exe /c "C:\A Dir\x.cmd"' `
             -Replaces "$($script:OldFolder)Legacy" -Root $script:Root | Out-Null
-        Add-WatchDogJob -Name 'Often' -Owner $script:Owner -Every '00:10:00' -Command 'cmd.exe /c exit 0' -Root $script:Root | Out-Null
-        Add-WatchDogJob -Name 'Often' -Owner $script:Owner -Every '00:15:00' -Command 'cmd.exe /c exit 0' -Root $script:Root | Out-Null   # overwrite
+        Add-SchedulerJob -Name 'Often' -Owner $script:Owner -Every '00:10:00' -Command 'cmd.exe /c exit 0' -Root $script:Root | Out-Null
+        Add-SchedulerJob -Name 'Often' -Owner $script:Owner -Every '00:15:00' -Command 'cmd.exe /c exit 0' -Root $script:Root | Out-Null   # overwrite
 
         ((Get-Tasks $script:Folder).TaskName | Sort-Object) -join ',' | Should -Be 'Often,Once'
         Get-Tasks $script:OldFolder | Should -BeNullOrEmpty
@@ -96,19 +96,19 @@ Describe 'watchdog job against the real Task Scheduler' {
     }
 
     It 'lists the owner''s jobs with their command and next run' {
-        $jobs = @(Get-WatchDogJob -Owner $script:Owner -Root $script:Root)
+        $jobs = @(Get-SchedulerJob -Owner $script:Owner -Root $script:Root)
         ($jobs.name | Sort-Object) -join ',' | Should -Be 'Often,Once'
         $once = $jobs | Where-Object name -eq 'Once'
         $once.command | Should -Be 'cmd.exe /c "C:\A Dir\x.cmd"'
         $once.task | Should -Be "$($script:Folder)Once"
         $once.nextRun | Should -Not -BeNullOrEmpty
-        @(Get-WatchDogJob -Owner 'NobodyHere' -Root $script:Root).Count | Should -Be 0
+        @(Get-SchedulerJob -Owner 'NobodyHere' -Root $script:Root).Count | Should -Be 0
     }
 
     It 'cancels a job, refuses an unknown one, and drops the owner''s folder once empty' {
-        Remove-WatchDogJob -Name 'Once' -Owner $script:Owner -Root $script:Root | Out-Null
-        { Remove-WatchDogJob -Name 'Once' -Owner $script:Owner -Root $script:Root } | Should -Throw '*No job*'
-        Remove-WatchDogJob -Name 'Often' -Owner $script:Owner -Root $script:Root | Out-Null
+        Remove-SchedulerJob -Name 'Once' -Owner $script:Owner -Root $script:Root | Out-Null
+        { Remove-SchedulerJob -Name 'Once' -Owner $script:Owner -Root $script:Root } | Should -Throw '*No job*'
+        Remove-SchedulerJob -Name 'Often' -Owner $script:Owner -Root $script:Root | Out-Null
         Get-Tasks $script:Folder | Should -BeNullOrEmpty
         { $svc = New-Object -ComObject Schedule.Service; $svc.Connect(); $svc.GetFolder($script:Folder.TrimEnd('\')) } | Should -Throw
     }
@@ -117,20 +117,20 @@ Describe 'watchdog job against the real Task Scheduler' {
         $exe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
         # The real root, a test-only owner: the command line has no --root option.
         $ErrorActionPreference = 'Continue'   # the failing call's stderr is expected
-        $owner = 'WatchDogTests'
+        $owner = 'SchedulerTests'
         $at = (Get-Date).AddDays(1).ToString('yyyy-MM-ddTHH:mm')
         try {
-            & $exe -NoProfile -ExecutionPolicy Bypass -File $script:WatchDog job add Cli --owner $owner --at $at --run 'cmd.exe /c exit 0' | Out-Null
+            & $exe -NoProfile -ExecutionPolicy Bypass -File $script:Scheduler job add Cli --owner $owner --at $at --run 'cmd.exe /c exit 0' | Out-Null
             $LASTEXITCODE | Should -Be 0
-            $json = & $exe -NoProfile -ExecutionPolicy Bypass -File $script:WatchDog job list --owner $owner --json
+            $json = & $exe -NoProfile -ExecutionPolicy Bypass -File $script:Scheduler job list --owner $owner --json
             $LASTEXITCODE | Should -Be 0
             $listed = @(($json -join '') | ConvertFrom-Json)
             $listed.Count | Should -Be 1
             $listed[0].name | Should -Be 'Cli'
             $listed[0].command | Should -Be 'cmd.exe /c exit 0'
-            & $exe -NoProfile -ExecutionPolicy Bypass -File $script:WatchDog job cancel Cli --owner $owner | Out-Null
+            & $exe -NoProfile -ExecutionPolicy Bypass -File $script:Scheduler job cancel Cli --owner $owner | Out-Null
             $LASTEXITCODE | Should -Be 0
-            & $exe -NoProfile -ExecutionPolicy Bypass -File $script:WatchDog job cancel Cli --owner $owner 2>$null | Out-Null
+            & $exe -NoProfile -ExecutionPolicy Bypass -File $script:Scheduler job cancel Cli --owner $owner 2>$null | Out-Null
             $LASTEXITCODE | Should -Be 1
         }
         finally { Remove-Folder "\MindAttic\WatchDog\$owner\" }

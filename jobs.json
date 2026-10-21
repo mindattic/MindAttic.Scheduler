@@ -1,5 +1,5 @@
 {
-  "$comment": "Every MindAttic scheduled job. install.ps1 registers each one under \\MindAttic\\WatchDog\\ (HOUSE-LAW-11), wrapped in conhost --headless (a GUI-subsystem program is started directly). See README.md for the fields.",
+  "$comment": "Every MindAttic scheduled job (MindAttic.Scheduler, formerly MindAttic.WatchDog). install.ps1 registers each one under \\MindAttic\\WatchDog\\ (HOUSE-LAW-11), wrapped in conhost --headless (a GUI-subsystem program is started directly). See README.md for the fields.",
   "jobs": [
     {
       "name": "Automata.Tick",

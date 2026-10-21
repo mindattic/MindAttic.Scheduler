@@ -40,7 +40,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$script:ManagedMarker = 'Managed by MindAttic.WatchDog (jobs.json). Edit the manifest and rerun install.ps1; do not edit this task by hand.'
+$script:ManagedMarker = 'Managed by MindAttic.Scheduler (jobs.json). Edit the manifest and rerun install.ps1; do not edit this task by hand.'
 
 function ConvertTo-TaskFolder([string]$Path) {
     # Task Scheduler folders are written '\A\B\': leading and trailing backslash.
@@ -113,7 +113,7 @@ function Read-JobManifest([string]$Path, [string]$TaskPath = '\MindAttic\WatchDo
         foreach ($r in @($j.replaces | Where-Object { $_ })) {
             $old = Split-TaskFullName ([string]$r)
             if ($old.Path -ieq $folder) {
-                throw "Job '$name' replaces '$r', which is inside $folder itself; that would delete a WatchDog job."
+                throw "Job '$name' replaces '$r', which is inside $folder itself; that would delete a Scheduler job."
             }
             $replaces += $old
         }
@@ -210,7 +210,7 @@ function New-JobAction($Job) {
 }
 
 function Remove-EmptyTaskFolder([string]$Folder) {
-    # Best effort: drop the old owner's folder once its last task has moved to WatchDog.
+    # Best effort: drop the old owner's folder once its last task has moved to Scheduler.
     $Folder = ConvertTo-TaskFolder $Folder
     if ($Folder -eq '\' -or $Folder -ieq '\MindAttic\') { return }
     try {
@@ -226,13 +226,13 @@ function Remove-EmptyTaskFolder([string]$Folder) {
     catch { Write-Verbose "Could not tidy folder ${Folder}: $($_.Exception.Message)" }
 }
 
-function Install-WatchDogJobs {
+function Install-SchedulerJobs {
     [CmdletBinding(SupportsShouldProcess)]
     param([string]$Manifest, [string]$TaskPath)
 
     $folder = ConvertTo-TaskFolder $TaskPath
     $jobs = Read-JobManifest $Manifest $folder
-    Write-Output "WatchDog: $($jobs.Count) job(s) from $Manifest -> $folder"
+    Write-Output "Scheduler: $($jobs.Count) job(s) from $Manifest -> $folder"
 
     # 1. Retire the old copies each job replaces.
     foreach ($job in $jobs) {
@@ -277,7 +277,7 @@ function Install-WatchDogJobs {
         }
     }
 
-    # 3. Unregister WatchDog tasks the manifest no longer lists (this folder only, not subfolders).
+    # 3. Unregister Scheduler tasks the manifest no longer lists (this folder only, not subfolders).
     $wanted = @{}
     foreach ($job in $jobs) { $wanted[$job.Name.ToLowerInvariant()] = $true }
     $present = @(Get-ScheduledTask -TaskPath $folder -ErrorAction SilentlyContinue |
@@ -297,4 +297,4 @@ if ($MyInvocation.InvocationName -eq '.') { return }
 
 if (-not $Manifest) { $Manifest = Join-Path $PSScriptRoot 'jobs.json' }
 
-Install-WatchDogJobs -Manifest $Manifest -TaskPath $TaskPath
+Install-SchedulerJobs -Manifest $Manifest -TaskPath $TaskPath

@@ -5,7 +5,7 @@
 .DESCRIPTION
   lghub_agent leaks private memory until it starves the machine. Stopping it is safe:
   lghub_system_tray relaunches it within seconds. Each restart is logged with the size it
-  reached. Run hourly by the WatchDog job 'Lghub.LeakGuard' (jobs.json).
+  reached. Run hourly by the Scheduler job 'Lghub.LeakGuard' (jobs.json).
 
 .PARAMETER LimitGB
   Restart the agent once its private memory reaches this many GB. Default 2.

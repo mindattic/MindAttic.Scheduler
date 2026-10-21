@@ -176,7 +176,7 @@ Describe 'Split-TaskFullName' {
     }
 }
 
-Describe 'Install-WatchDogJobs against the real Task Scheduler' {
+Describe 'Install-SchedulerJobs against the real Task Scheduler' {
     BeforeAll {
         $script:Folder = '\MindAttic\WatchDog\Tests\'
         $script:OldFolder = '\MindAttic\WatchDogTestsOld\'
@@ -209,8 +209,8 @@ Describe 'Install-WatchDogJobs against the real Task Scheduler' {
             @{ name = 'Nightly'; command = $script:Cmd; workingDirectory = '%TEMP%'; schedule = @{ daily = '03:15' } }
         )
 
-        Install-WatchDogJobs -Manifest $m -TaskPath $script:Folder | Out-Null
-        Install-WatchDogJobs -Manifest $m -TaskPath $script:Folder | Out-Null   # second run: no change, no error
+        Install-SchedulerJobs -Manifest $m -TaskPath $script:Folder | Out-Null
+        Install-SchedulerJobs -Manifest $m -TaskPath $script:Folder | Out-Null   # second run: no change, no error
 
         $tasks = Get-Tasks $script:Folder
         ($tasks.TaskName | Sort-Object) -join ',' | Should -Be 'Nightly,Tick'
@@ -235,7 +235,7 @@ Describe 'Install-WatchDogJobs against the real Task Scheduler' {
             -Trigger (New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME") | Out-Null
         try {
             $m = Write-Manifest @(@{ name = 'Tick'; command = $script:Cmd; schedule = @{ every = '00:05:00' } })
-            Install-WatchDogJobs -Manifest $m -TaskPath $script:Folder | Out-Null
+            Install-SchedulerJobs -Manifest $m -TaskPath $script:Folder | Out-Null
 
             (Get-Tasks $script:Folder).TaskName | Should -Be 'Tick'
             (Get-Tasks $sub).TaskName | Should -Be 'Runtime'
@@ -246,7 +246,7 @@ Describe 'Install-WatchDogJobs against the real Task Scheduler' {
     It 'keeps a keepRunning job running: no time limit, restarted on failure, started on install' {
         $m = Write-Manifest @(@{ name = 'Daemon'; command = 'cmd.exe /c ping -n 120 127.0.0.1'; schedule = @{ atLogon = $true }; keepRunning = $true })
         try {
-            $out = Install-WatchDogJobs -Manifest $m -TaskPath $script:Folder
+            $out = Install-SchedulerJobs -Manifest $m -TaskPath $script:Folder
             $out | Should -Contain "  started $($script:Folder)Daemon"
             $d = Get-ScheduledTask -TaskPath $script:Folder -TaskName 'Daemon'
             $d.State | Should -Be 'Running'
@@ -254,18 +254,18 @@ Describe 'Install-WatchDogJobs against the real Task Scheduler' {
             $d.Settings.RestartCount | Should -Be 3
             $d.Settings.RestartInterval | Should -Be 'PT1M'
             # Rerunning leaves the running instance alone.
-            Install-WatchDogJobs -Manifest $m -TaskPath $script:Folder | Should -Not -Contain "  started $($script:Folder)Daemon"
+            Install-SchedulerJobs -Manifest $m -TaskPath $script:Folder | Should -Not -Contain "  started $($script:Folder)Daemon"
         }
         finally {
             Stop-ScheduledTask -TaskPath $script:Folder -TaskName 'Daemon' -ErrorAction SilentlyContinue
             # Put the folder back the way the -WhatIf test expects it.
-            Install-WatchDogJobs -Manifest (Write-Manifest @(@{ name = 'Tick'; command = $script:Cmd; schedule = @{ every = '00:05:00' } })) -TaskPath $script:Folder | Out-Null
+            Install-SchedulerJobs -Manifest (Write-Manifest @(@{ name = 'Tick'; command = $script:Cmd; schedule = @{ every = '00:05:00' } })) -TaskPath $script:Folder | Out-Null
         }
     }
 
     It 'changes nothing under -WhatIf' {
         $m = Write-Manifest @()
-        Install-WatchDogJobs -Manifest $m -TaskPath $script:Folder -WhatIf | Out-Null
+        Install-SchedulerJobs -Manifest $m -TaskPath $script:Folder -WhatIf | Out-Null
         (Get-Tasks $script:Folder).TaskName | Should -Be 'Tick'
     }
 }
