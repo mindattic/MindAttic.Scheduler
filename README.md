@@ -11,7 +11,8 @@ Scheduled Task its own way, each job is a line in [`jobs.json`](jobs.json) and
   password, no elevation). The one exception is a GUI-subsystem program (a windowless WinExe
   daemon such as the Orchestrator's): it never gets a console, and conhost would hand it off and
   exit at once, so it is started directly and the task tracks the real process. That is read from
-  the exe's header at install time; if the exe isn't there yet, rerun the install once it is;
+  the exe's header at install time (a bare name such as `pythonw` is first resolved through PATH
+  and then run by its full path); if the exe isn't there yet, rerun the install once it is;
 - the older copies a job lists under `replaces` are stopped and unregistered, and their folder is
   removed once it is empty;
 - any task directly in `\MindAttic\Scheduler\` that the manifest no longer lists is unregistered.
@@ -25,6 +26,9 @@ It is idempotent: rerun it after every edit to `jobs.json`.
 ```
 
 ## jobs.json
+
+The `jobs` list is required: a manifest without it is refused rather than read as "no jobs" (which
+would unregister every Scheduler job). Write `"jobs": []` to really have none.
 
 ```json
 {
@@ -44,7 +48,7 @@ It is idempotent: rerun it after every edit to `jobs.json`.
 | `name` | yes | Task name under `\MindAttic\Scheduler\`. Letters, digits, `.`, `_`, `-`, space; unique. |
 | `command` | yes | The full command line (program, quoted if it has spaces, then its arguments). `%VAR%` environment variables are expanded at install time. |
 | `schedule` | yes | One entry or a list of them. Each entry has exactly one of: `{"every": "hh:mm:ss"}` (repeat forever, at least a minute apart), `{"daily": "HH:mm"}`, `{"atLogon": true}`. |
-| `replaces` | no | Tasks this job takes over from, as full paths (`\MindAttic\Launcher\MindAtticLauncherNightlyBackup`) or bare names for root-level tasks. They are removed on install. |
+| `replaces` | no | Tasks this job takes over from, as full paths (`\MindAttic\Launcher\MindAtticLauncherNightlyBackup`) or bare names for root-level tasks. They are removed on install. A task anywhere under `\MindAttic\Scheduler\` (runtime owner subfolders included) is refused. |
 | `workingDirectory` | no | Start-in folder; `%VAR%` expanded. |
 | `description` | no | Shown in Task Scheduler above the "managed by Scheduler" note. |
 | `timeLimit` | no | Kill the run after this long (`hh:mm:ss`, `00:00:00` = never). Default 72 hours, the Windows default. |

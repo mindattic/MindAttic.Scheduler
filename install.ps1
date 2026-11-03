@@ -92,6 +92,13 @@ function Test-ScheduleEntry($Entry, [string]$Job) {
 function Read-JobManifest([string]$Path, [string]$TaskPath = '\MindAttic\Scheduler\') {
     if (-not (Test-Path -LiteralPath $Path)) { throw "Manifest not found: $Path" }
     $doc = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
+    # A manifest with no 'jobs' key (or "jobs": null) is a broken manifest, not an empty one:
+    # treating it as empty would unregister every Scheduler job. An explicit "jobs": [] still
+    # means "no jobs".
+    $jobsProp = if ($null -ne $doc) { $doc.PSObject.Properties['jobs'] } else { $null }
+    if ($null -eq $jobsProp -or $null -eq $jobsProp.Value) {
+        throw "Manifest $Path has no 'jobs' list. Use `"jobs`": [] to really have no jobs."
+    }
     $folder = ConvertTo-TaskFolder $TaskPath
     $seen = @{}
     $jobs = @()
@@ -112,8 +119,10 @@ function Read-JobManifest([string]$Path, [string]$TaskPath = '\MindAttic\Schedul
         $replaces = @()
         foreach ($r in @($j.replaces | Where-Object { $_ })) {
             $old = Split-TaskFullName ([string]$r)
-            if ($old.Path -ieq $folder) {
-                throw "Job '$name' replaces '$r', which is inside $folder itself; that would delete a Scheduler job."
+            # The whole subtree is Scheduler's: runtime jobs live in $folder<owner>\ (scheduler.ps1
+            # blocks the same subtree for --replaces).
+            if ($old.Path.StartsWith($folder, [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Job '$name' replaces '$r', which is inside $folder; that would delete a Scheduler job."
             }
             $replaces += $old
         }
@@ -169,6 +178,18 @@ function Split-CommandLine([string]$Command) {
     [pscustomobject]@{ Program = $c; Arguments = '' }
 }
 
+function Resolve-JobProgram([string]$Program) {
+    # A bare program name (pythonw) is resolved through PATH, the way the task itself would find
+    # it, so Test-GuiProgram can see what it really is. A path, or a name PATH can't resolve, is
+    # returned unchanged.
+    if ([string]::IsNullOrWhiteSpace($Program) -or [IO.Path]::IsPathRooted($Program) -or
+        $Program.IndexOfAny([char[]]'\/') -ge 0) { return $Program }
+    $cmd = Get-Command -Name $Program -CommandType Application -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($cmd -and $cmd.Source -and [IO.Path]::IsPathRooted($cmd.Source)) { return $cmd.Source }
+    $Program
+}
+
 function Test-GuiProgram([string]$Path) {
     # True when $Path is a PE image of the Windows GUI subsystem (2). Anything else, including a
     # program that isn't there yet, is treated as a console program.
@@ -194,9 +215,11 @@ function New-JobAction($Job) {
     # by an Interactive task neither flashes a window nor takes focus. A GUI-subsystem program
     # gets no console anyway, and conhost would start it and exit at once (leaving the task
     # 'finished' while the program runs untracked), so it is started directly.
+    # A bare-name GUI program (pythonw) is resolved through PATH and run directly by full path.
     $parts = Split-CommandLine $Job.Command
-    if (Test-GuiProgram $parts.Program) {
-        $execute = $parts.Program
+    $program = Resolve-JobProgram $parts.Program
+    if (Test-GuiProgram $program) {
+        $execute = $program
         $argument = $parts.Arguments
     }
     else {
