@@ -146,6 +146,9 @@ function Get-SchedulerJob {
     foreach ($t in $tasks) {
         $info = Get-ScheduledTaskInfo -TaskPath $folder -TaskName $t.TaskName -ErrorAction SilentlyContinue
         $arguments = [string]$t.Actions[0].Arguments
+        # A GUI program is run directly (New-JobAction); quote it back if its path has spaces.
+        $execute = [string]$t.Actions[0].Execute
+        if ($execute -match '\s' -and $execute -notmatch '^"') { $execute = "`"$execute`"" }
         $nextRun = if ($info -and $info.NextRunTime) { $info.NextRunTime.ToString('s') } else { $null }
         $lastRun = if ($info -and $info.LastRunTime -and $info.LastRunTime.Year -gt 2000) { $info.LastRunTime.ToString('s') } else { $null }
         [pscustomobject]@{
@@ -155,7 +158,7 @@ function Get-SchedulerJob {
             state   = [string]$t.State
             nextRun = $nextRun
             lastRun = $lastRun
-            command = if ($arguments.StartsWith('--headless ')) { $arguments.Substring(11) } else { "$($t.Actions[0].Execute) $arguments".Trim() }
+            command = if ($arguments.StartsWith('--headless ')) { $arguments.Substring(11) } else { "$execute $arguments".Trim() }
         }
     }
 }

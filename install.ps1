@@ -91,7 +91,7 @@ function Test-ScheduleEntry($Entry, [string]$Job) {
 
 function Read-JobManifest([string]$Path, [string]$TaskPath = '\MindAttic\Scheduler\') {
     if (-not (Test-Path -LiteralPath $Path)) { throw "Manifest not found: $Path" }
-    $doc = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+    $doc = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
     $folder = ConvertTo-TaskFolder $TaskPath
     $seen = @{}
     $jobs = @()
