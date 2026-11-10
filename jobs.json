@@ -20,12 +20,44 @@
     },
     {
       "name": "IdiotProof.ResearchScan",
-      "description": "IdiotProof research scanner: one scan pass an hour so the /research tab has fresh data. Runs as you (LocalDB and the Vault keyrings are user-scoped) while you are logged on. Publish it first: dotnet publish IdiotProof.ResearchScanner -c Release -o C:\\Apps\\IdiotProof\\ResearchScanner --no-self-contained.",
-      "command": "\"C:\\Apps\\IdiotProof\\ResearchScanner\\idiotproof-research-scanner.exe\"",
-      "workingDirectory": "C:\\Apps\\IdiotProof\\ResearchScanner",
+      "description": "IdiotProof research scan: one pass an hour, run in the IdiotProof Hub (`idiotproof research scan`), the one process that talks to Alpaca and the database. Needs the Hub service running.",
+      "command": "C:\\Apps\\IdiotProof\\Cli\\idiotproof.exe research scan",
+      "workingDirectory": "C:\\Apps\\IdiotProof\\Cli",
       "schedule": { "every": "01:00:00" },
       "timeLimit": "00:30:00",
       "replaces": ["\\MindAttic\\IdiotProof\\IdiotProof Research Scan", "IdiotProof Research Scan"]
+    },
+    {
+      "name": "IdiotProof.MomentumCollect",
+      "description": "IdiotProof: imports Momentum.'s new videos and extracts their picks, through the Hub. Local (Central) times; in ET: 07:00, 08:00, 08:45, 19:15, 20:00, 20:45, 21:30, 22:30.",
+      "command": "cmd.exe /c C:\\Apps\\IdiotProof\\Cli\\idiotproof.exe momentum import & C:\\Apps\\IdiotProof\\Cli\\idiotproof.exe momentum extract",
+      "workingDirectory": "C:\\Apps\\IdiotProof\\Cli",
+      "schedule": [{ "daily": "06:00" }, { "daily": "07:00" }, { "daily": "07:45" }, { "daily": "18:15" }, { "daily": "19:00" }, { "daily": "19:45" }, { "daily": "20:30" }, { "daily": "21:30" }],
+      "timeLimit": "00:45:00"
+    },
+    {
+      "name": "IdiotProof.MomentumVerify",
+      "description": "IdiotProof: checks Momentum.'s finished sessions against Alpaca bars and rewrites the claims report, through the Hub. 19:10 Central = 20:10 ET.",
+      "command": "cmd.exe /c C:\\Apps\\IdiotProof\\Cli\\idiotproof.exe momentum verify & C:\\Apps\\IdiotProof\\Cli\\idiotproof.exe momentum report",
+      "workingDirectory": "C:\\Apps\\IdiotProof\\Cli",
+      "schedule": { "daily": "19:10" },
+      "timeLimit": "01:00:00"
+    },
+    {
+      "name": "IdiotProof.GapperRadar",
+      "description": "IdiotProof: ranks the next session's possible gappers (gapper study signs plus Momentum.'s picks) into the 'Gapper radar' Alpaca paper watchlist and saves the list under D:\\IdiotProofData\\radar, through the Hub. In ET: 20:20, 21:45, 22:45, 08:55.",
+      "command": "C:\\Apps\\IdiotProof\\Cli\\idiotproof.exe gapper radar --top 50 --watchlist \"Gapper radar\" --save",
+      "workingDirectory": "C:\\Apps\\IdiotProof\\Cli",
+      "schedule": [{ "daily": "19:20" }, { "daily": "20:45" }, { "daily": "21:45" }, { "daily": "07:55" }],
+      "timeLimit": "00:30:00"
+    },
+    {
+      "name": "IdiotProof.MomentumArm",
+      "description": "IdiotProof paper forward test (amendment 04): at 09:29 ET arms one 1-share Paper strategy per Momentum. pick (premarket-high break), through the Hub; never Live. It skips weekends and NYSE holidays and does nothing after the 15:30 ET entry window, so a late catch-up run is harmless.",
+      "command": "C:\\Apps\\IdiotProof\\Cli\\idiotproof.exe gapper momentum-arm --activate",
+      "workingDirectory": "C:\\Apps\\IdiotProof\\Cli",
+      "schedule": { "daily": "08:29" },
+      "timeLimit": "00:15:00"
     },
     {
       "name": "JellyFinPoster.Refresh",
