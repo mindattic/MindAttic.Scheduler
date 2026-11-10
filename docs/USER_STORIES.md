@@ -45,3 +45,8 @@ _Nothing recorded yet._
 | M.SCHD-T22 | 2026-10-25 | chore | open | Point the Orchestrator.Daemon job (jobs.json, install.Tests.ps1, SCHEDULED_TASK_AUDIT.md) at C:\Apps\MindAttic.Orchestrator\MindAttic.Orchestrator.Daemon.exe once the daemon has its own exe (M.ORCH-T1216); the old path keeps working through the forwarder | — |
 | M.SCHD-T23 | 2026-10-25 | fix | open | Start the Orchestrator dashboard by its new name MindAttic.Orchestrator.Desktop.exe (M.ORCH-T844 renamed it; the old MindAttic.Orchestrator.exe is only kept as a legacy fallback) | — |
 | M.SCHD-T24 | 2026-10-27 | docs | closed | Update USER_STORIES.md | — |
+| M.SCHD-T25 | 2026-11-02 | docs | open | Adopt MindAttic.Agency docs-site pipeline, publish README to GitHub Pages (HOUSE-LAW-14) | — |
+| M.SCHD-T26 | 2026-11-02 | fix | closed | Bughunt sweep, two passes: find and fix real bugs across tracked source (user request 2026-11-02) | — |
+| M.SCHD-T27 | 2026-11-02 | fix | closed | Fix the open items the 2026-11-02 bughunt left for decision (missing jobs key, replace guard subtree, bare-name GUI exes via PATH) | — |
+| M.SCHD-T28 | 2026-11-05 | feature | open | Job: when free space on C: drops below 20 GB, clean out old temp data (user/Windows temp and other safe caches, oldest first, only items older than a cutoff and not in use; never live agent scratchpads; log what was freed) | user request 2026-11-05 |
+| M.SCHD-T29 | 2026-11-10 | chore | closed | Crash recovery: commit the command-catalog sync (.agent/commands/*.md) and regenerated docs/USER_STORIES.md left uncommitted by the session crash | — |
