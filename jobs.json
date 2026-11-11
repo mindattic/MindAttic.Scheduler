@@ -21,7 +21,7 @@
     {
       "name": "IdiotProof.ResearchScan",
       "description": "IdiotProof research scan: one pass an hour, run in the IdiotProof Hub (`idiotproof research scan`), the one process that talks to Alpaca and the database. Needs the Hub service running.",
-      "command": "C:\\Apps\\IdiotProof\\Cli\\idiotproof.exe research scan",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\IdiotProof\\tools\\scheduled-job.ps1\" -Job IdiotProof.ResearchScan -Run \"research scan\"",
       "workingDirectory": "C:\\Apps\\IdiotProof\\Cli",
       "schedule": { "every": "01:00:00" },
       "timeLimit": "00:30:00",
@@ -30,7 +30,7 @@
     {
       "name": "IdiotProof.MomentumCollect",
       "description": "IdiotProof: imports Momentum.'s new videos and extracts their picks, through the Hub. Local (Central) times; in ET: 07:00, 08:00, 08:45, 19:15, 20:00, 20:45, 21:30, 22:30.",
-      "command": "cmd.exe /c C:\\Apps\\IdiotProof\\Cli\\idiotproof.exe momentum import & C:\\Apps\\IdiotProof\\Cli\\idiotproof.exe momentum extract",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\IdiotProof\\tools\\scheduled-job.ps1\" -Job IdiotProof.MomentumCollect -Run \"momentum import; momentum extract\"",
       "workingDirectory": "C:\\Apps\\IdiotProof\\Cli",
       "schedule": [{ "daily": "06:00" }, { "daily": "07:00" }, { "daily": "07:45" }, { "daily": "18:15" }, { "daily": "19:00" }, { "daily": "19:45" }, { "daily": "20:30" }, { "daily": "21:30" }],
       "timeLimit": "00:45:00"
@@ -38,7 +38,7 @@
     {
       "name": "IdiotProof.MomentumVerify",
       "description": "IdiotProof: checks Momentum.'s finished sessions against Alpaca bars and rewrites the claims report, through the Hub. 19:10 Central = 20:10 ET.",
-      "command": "cmd.exe /c C:\\Apps\\IdiotProof\\Cli\\idiotproof.exe momentum verify & C:\\Apps\\IdiotProof\\Cli\\idiotproof.exe momentum report",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\IdiotProof\\tools\\scheduled-job.ps1\" -Job IdiotProof.MomentumVerify -Run \"momentum verify; momentum report\"",
       "workingDirectory": "C:\\Apps\\IdiotProof\\Cli",
       "schedule": { "daily": "19:10" },
       "timeLimit": "01:00:00"
@@ -46,7 +46,7 @@
     {
       "name": "IdiotProof.GapperRadar",
       "description": "IdiotProof: ranks the next session's possible gappers (gapper study signs plus Momentum.'s picks) into the 'Gapper radar' Alpaca paper watchlist and saves the list under D:\\IdiotProofData\\radar, through the Hub. In ET: 20:20, 21:45, 22:45, 08:55.",
-      "command": "C:\\Apps\\IdiotProof\\Cli\\idiotproof.exe gapper radar --top 50 --watchlist \"Gapper radar\" --save",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\IdiotProof\\tools\\scheduled-job.ps1\" -Job IdiotProof.GapperRadar -Run \"gapper radar --top 50 --watchlist 'Gapper radar' --save\"",
       "workingDirectory": "C:\\Apps\\IdiotProof\\Cli",
       "schedule": [{ "daily": "19:20" }, { "daily": "20:45" }, { "daily": "21:45" }, { "daily": "07:55" }],
       "timeLimit": "00:30:00"
@@ -54,9 +54,17 @@
     {
       "name": "IdiotProof.MomentumArm",
       "description": "IdiotProof paper forward test (amendment 04): at 09:29 ET arms one 1-share Paper strategy per Momentum. pick (premarket-high break), through the Hub; never Live. It skips weekends and NYSE holidays and does nothing after the 15:30 ET entry window, so a late catch-up run is harmless.",
-      "command": "C:\\Apps\\IdiotProof\\Cli\\idiotproof.exe gapper momentum-arm --activate",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\IdiotProof\\tools\\scheduled-job.ps1\" -Job IdiotProof.MomentumArm -Run \"gapper momentum-arm --activate\"",
       "workingDirectory": "C:\\Apps\\IdiotProof\\Cli",
       "schedule": { "daily": "08:29" },
+      "timeLimit": "00:15:00"
+    },
+    {
+      "name": "IdiotProof.MomentumExpire",
+      "description": "IdiotProof: after the close (16:05 ET) deactivates the day's flat Momentum pick paper strategies, so a day's premarket-high levels never carry into the next session, through the Hub.",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\IdiotProof\\tools\\scheduled-job.ps1\" -Job IdiotProof.MomentumExpire -Run \"gapper momentum-arm --expire\"",
+      "workingDirectory": "C:\\Apps\\IdiotProof\\Cli",
+      "schedule": { "daily": "15:05" },
       "timeLimit": "00:15:00"
     },
     {
