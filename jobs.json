@@ -108,6 +108,22 @@
       "workingDirectory": "D:\\Projects\\MindAttic\\docs\\ops\\azure-migration",
       "schedule": { "daily": "02:00" },
       "timeLimit": "04:00:00"
+    },
+    {
+      "name": "Azure.BackupNightly",
+      "description": "Azure SQL backup, nightly tier (MAT-T147, docs/ops/azure-migration/BACKUP.md): a full export (bacpac) of every always-on DTU database (IdiotProof, ClaudeActivity, MindAttic.Tickets, MindAttic.Orchestrator and any other Basic/Standard database on the server) to R:\\Backup\\MindAttic\\azure and to blob db-backups/bacpac, each checked offline, keeping the newest 14 plus 8 weekly plus 12 monthly per database on both sides. Logs: R:\\Backup\\MindAttic\\azure\\logs.",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\docs\\ops\\azure-migration\\Backup-Scheduled.ps1\" -Tier AlwaysOn -KeepNewest 14 -KeepWeekly 8 -KeepMonthly 12",
+      "workingDirectory": "D:\\Projects\\MindAttic\\docs\\ops\\azure-migration",
+      "schedule": { "daily": "01:15" },
+      "timeLimit": "02:00:00"
+    },
+    {
+      "name": "Azure.BackupWeekly",
+      "description": "Azure SQL backup, weekly and large tiers (MAT-T147, docs/ops/azure-migration/BACKUP.md). Runs every night but exports a free-offer serverless database at most once every 7 days (the four over 2 GB - Prose, IdiotProof_History, IdiotProof_Research_GAP, IdiotProof_Research_T375 - every 28 days), and never one that is paused and unchanged since its last export, so paused databases are not woken and the 100,000 vCore-second monthly allowance is kept for real work. Same destinations and offline check as Azure.BackupNightly; keeps the newest 4 plus 8 weekly plus 12 monthly per database. Logs: R:\\Backup\\MindAttic\\azure\\logs.",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\docs\\ops\\azure-migration\\Backup-Scheduled.ps1\" -Tier Serverless,Large -ServerlessEveryDays 7 -LargeEveryDays 28 -KeepNewest 4 -KeepWeekly 8 -KeepMonthly 12",
+      "workingDirectory": "D:\\Projects\\MindAttic\\docs\\ops\\azure-migration",
+      "schedule": { "daily": "04:30" },
+      "timeLimit": "08:00:00"
     }
   ]
 }
