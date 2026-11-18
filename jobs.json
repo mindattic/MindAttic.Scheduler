@@ -102,14 +102,6 @@
       "replaces": ["MindAttic LghubWatchdog"]
     },
     {
-      "name": "Azure.NightlySync",
-      "description": "INTERIM (MAT-T144): nightly mirror of the Azure SQL databases back to their READ_ONLY local copies (ClaudeActivity goes up instead), in cheap mode so paused free-offer databases are not woken. A local copy that is still READ_WRITE is refused, so it does nothing harmful before the cutover. Logs: R:\\Backup\\MindAttic\\sync-nightly. Remove this job once the cloud copies and Backup-AzureDatabase.ps1 are trusted.",
-      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\docs\\ops\\azure-migration\\Sync-Nightly.ps1\"",
-      "workingDirectory": "D:\\Projects\\MindAttic\\docs\\ops\\azure-migration",
-      "schedule": { "daily": "02:00" },
-      "timeLimit": "04:00:00"
-    },
-    {
       "name": "Azure.BackupNightly",
       "description": "Azure SQL backup, nightly tier (MAT-T147, docs/ops/azure-migration/BACKUP.md): a full export (bacpac) of every always-on DTU database (IdiotProof, ClaudeActivity, MindAttic.Tickets, MindAttic.Orchestrator and any other Basic/Standard database on the server) to R:\\Backup\\MindAttic\\azure and to blob db-backups/bacpac, each checked offline, keeping the newest 14 plus 8 weekly plus 12 monthly per database on both sides. Logs: R:\\Backup\\MindAttic\\azure\\logs.",
       "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\docs\\ops\\azure-migration\\Backup-Scheduled.ps1\" -Tier AlwaysOn -KeepNewest 14 -KeepWeekly 8 -KeepMonthly 12",
