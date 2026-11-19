@@ -68,6 +68,14 @@
       "timeLimit": "00:15:00"
     },
     {
+      "name": "IdiotProof.DataMirror",
+      "description": "IdiotProof: mirrors D:\\IdiotProofData (gapper-study bars, SEC company facts, FINRA, halts, radar, momentum; ~35 GB) to R:\\Backup\\IdiotProofData with robocopy /MIR, only what changed, build scratch folders skipped (IP-T581). 02:30 Central, after the Launcher backup's busiest stretch. Log: scheduler-jobs.log.",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\IdiotProof\\tools\\mirror-data.ps1\"",
+      "workingDirectory": "D:\\Projects\\MindAttic\\IdiotProof",
+      "schedule": { "daily": "02:30" },
+      "timeLimit": "03:00:00"
+    },
+    {
       "name": "JellyFinPoster.Refresh",
       "description": "Refreshes the Jellyfin Movies/TV Shows library artwork from trending TMDB titles, daily at midnight; a missed run catches up on the next wake or logon.",
       "command": "pythonw \"D:\\Projects\\MindAttic\\JellyFinPoster\\jellyfin_poster.py\"",
