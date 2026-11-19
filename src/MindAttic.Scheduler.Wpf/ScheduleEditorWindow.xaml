@@ -41,6 +41,10 @@
         <TextBlock Text="{Binding CronError}" Foreground="Red" TextWrapping="Wrap" Margin="0,4,0,0"
                    Visibility="{Binding HasCronError, Converter={StaticResource Visible}}" />
         <TextBlock Text="{Binding PreviewHuman}" Margin="0,8,0,0" TextWrapping="Wrap" FontStyle="Italic" />
+        <TextBlock Text="{Binding OtherEntriesNote}" Margin="0,8,0,0" TextWrapping="Wrap" Opacity="0.7"
+                   Visibility="{Binding HasOtherEntries, Converter={StaticResource Visible}}" />
+        <TextBlock Text="{Binding SaveError}" Foreground="Red" TextWrapping="Wrap" Margin="0,8,0,0"
+                   Visibility="{Binding HasSaveError, Converter={StaticResource Visible}}" />
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
             <Button Content="Cancel" Width="80" Click="Cancel_Click" Margin="0,0,8,0" IsCancel="True" />

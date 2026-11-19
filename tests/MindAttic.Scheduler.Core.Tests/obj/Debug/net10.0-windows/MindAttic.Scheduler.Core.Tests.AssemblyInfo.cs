@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyCopyrightAttribute("Copyright (c) 2026 MindAttic")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+90965afae0b24635ff752ecda77d53d3a811ec96")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7fdc5233e38edf5ac25b7427632476eadea51b18")]
 [assembly: System.Reflection.AssemblyProductAttribute("MindAttic.Scheduler.Core.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MindAttic.Scheduler.Core.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -25,8 +25,11 @@ public static class PowerShellRunner
 
         using var process = Process.Start(psi)
             ?? throw new InvalidOperationException($"Could not start powershell.exe for '{scriptPath}'.");
+        // Drain stderr concurrently: reading stdout to the end first deadlocks once the script
+        // writes more to stderr than its pipe buffer holds (it blocks on stderr, we block on stdout).
+        var stdErrTask = process.StandardError.ReadToEndAsync();
         string stdOut = process.StandardOutput.ReadToEnd();
-        string stdErr = process.StandardError.ReadToEnd();
+        string stdErr = stdErrTask.GetAwaiter().GetResult();
         process.WaitForExit();
         return new PowerShellResult(process.ExitCode, stdOut, stdErr);
     }

@@ -48,6 +48,10 @@ public class CronTranslatorTests
     [InlineData("0 9 * 6 *")]   // month
     [InlineData("*/5 * * * * *")] // 6 fields
     [InlineData("not a cron")]
+    [InlineData("*/45 * * * *")]  // really :00 and :45, not every 45 minutes (M.SCHD-T41)
+    [InlineData("0 */5 * * *")]   // really 0,5,10,15,20h, not every 5 hours
+    [InlineData("*/0 * * * *")]
+    [InlineData("*/99999999999 * * * *")]
     public void RejectsWhatTheTriggerModelCannotRepresent(string cron)
     {
         Assert.False(CronTranslator.TryParse(cron, out var schedule, out var error));
@@ -65,6 +69,15 @@ public class CronTranslatorTests
         Assert.Equal("09:00", reparsed[0].Daily);
         Assert.Equal(schedule[0].DaysOfWeek!, reparsed[0].DaysOfWeek!);
     }
+
+    [Theory]
+    [InlineData("00:15:00", "*/15 * * * *")]
+    [InlineData("02:00:00", "0 */2 * * *")]
+    [InlineData("01:30:00", "")]   // no exact cron step (M.SCHD-T41)
+    [InlineData("00:45:00", "")]
+    [InlineData("05:00:00", "")]
+    public void IntervalCronTextIsExactOrEmpty(string every, string expected) =>
+        Assert.Equal(expected, CronTranslator.ToCronText([new ScheduleEntry { Every = every }]));
 
     [Fact]
     public void AtLogonHasNoCronText() =>

@@ -196,12 +196,24 @@ function ConvertFrom-IsoDuration([string]$Iso) {
 }
 
 function ConvertFrom-TaskTriggers($Triggers) {
-    # scheduler.ps1 only ever registers a single, once-only trigger (optionally repeating), so
-    # that is all this needs to recognise for a runtime job; a manifest job's schedule always
-    # comes from jobs.json itself, never from here.
+    # scheduler.ps1 only ever registers a single, once-only trigger (optionally repeating), but a
+    # root task jobs.json no longer lists (renamed/removed, install.ps1 not rerun yet) lands here
+    # too, so daily/weekly/logon triggers are read as what they are, not as 'once'.
     $entries = @()
+    $dayBits = [ordered]@{ Sun = 1; Mon = 2; Tue = 4; Wed = 8; Thu = 16; Fri = 32; Sat = 64 }
     foreach ($tr in @($Triggers)) {
-        if ($tr.Repetition -and $tr.Repetition.Interval) {
+        $class = [string]$tr.CimClass.CimClassName
+        if ($class -eq 'MSFT_TaskLogonTrigger') {
+            $entries += [pscustomobject]@{ atLogon = $true }
+        }
+        elseif ($class -in 'MSFT_TaskDailyTrigger', 'MSFT_TaskWeeklyTrigger' -and $tr.StartBoundary) {
+            $entry = [ordered]@{ daily = ([datetime]$tr.StartBoundary).ToString('HH:mm') }
+            if ($class -eq 'MSFT_TaskWeeklyTrigger') {
+                $entry.daysOfWeek = @($dayBits.Keys | Where-Object { [int]$tr.DaysOfWeek -band $dayBits[$_] })
+            }
+            $entries += [pscustomobject]$entry
+        }
+        elseif ($tr.Repetition -and $tr.Repetition.Interval) {
             $entries += [pscustomobject]@{ every = (ConvertFrom-IsoDuration $tr.Repetition.Interval).ToString() }
         }
         elseif ($tr.StartBoundary) {
@@ -246,7 +258,9 @@ function ConvertTo-JobStatus($Task, [string]$Folder, [string]$Source, [string]$O
     $info = Get-ScheduledTaskInfo -TaskPath $Folder -TaskName $Task.TaskName -ErrorAction SilentlyContinue
     $nextRun = if ($info -and $info.NextRunTime) { $info.NextRunTime.ToString('s') } else { $null }
     $lastRun = if ($info -and $info.LastRunTime -and $info.LastRunTime.Year -gt 2000) { $info.LastRunTime.ToString('s') } else { $null }
-    $scheduleRaw = if ($ManifestJob) { $ManifestJob.Schedule } else { ConvertFrom-TaskTriggers $Task.Triggers }
+    # The leading comma keeps a one-entry schedule an array: without it the if-statement's output
+    # unrolls it to a bare object, and --json would emit "scheduleRaw": {...} instead of [...].
+    $scheduleRaw = if ($ManifestJob) { , @($ManifestJob.Schedule) } else { ConvertFrom-TaskTriggers $Task.Triggers }
     $description = if ($ManifestJob) { $ManifestJob.Description }
     else { (([string]$Task.Description) -split [regex]::Escape($script:RuntimeMarker))[0].Trim() }
     $command = if ($ManifestJob) { $ManifestJob.Command }
@@ -418,7 +432,9 @@ usage: scheduler job add <name> --owner <app> (--at <time> | --every <hh:mm:ss>)
         'status' {
             Assert-KnownFlags $parsed @('json')
             if ($parsed.Positional.Count -ne 0) { throw "job status takes no job name.`n$usage" }
-            $jobs = @(Get-AllSchedulerJobs)
+            # No @(): Get-AllSchedulerJobs already returns its array whole (", $results"), and
+            # wrapping it again nests it, so --json printed [[...]] instead of [...].
+            $jobs = Get-AllSchedulerJobs
             if ($parsed.Flags['json']) { ConvertTo-Json -InputObject $jobs -Depth 6 -Compress }
             elseif ($jobs.Count -eq 0) { 'No jobs.' }
             else { $jobs | Format-Table name, source, owner, enabled, scheduleHuman, nextRun, lastRun -AutoSize | Out-String -Width 4096 | ForEach-Object TrimEnd }

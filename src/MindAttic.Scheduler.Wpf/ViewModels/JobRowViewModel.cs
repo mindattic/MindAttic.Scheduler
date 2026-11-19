@@ -32,7 +32,8 @@ public sealed class JobRowViewModel(JobStatus status, IJobProvider provider) : O
     public string NextRun => FormatLocal(Status.NextRun);
     public string LastRun => FormatLocal(Status.LastRun);
 
-    public bool IsBusy { get => isBusy; private set => Set(ref isBusy, value); }
+    public bool IsBusy { get => isBusy; private set { if (Set(ref isBusy, value)) Raise(nameof(IsNotBusy)); } }
+    public bool IsNotBusy => !IsBusy;
     public string? Error { get => error; private set => Set(ref error, value); }
 
     public bool Enabled

@@ -30,7 +30,18 @@
                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="150" />
                 <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="320" />
                 <DataGridTextColumn Header="Schedule" Binding="{Binding ScheduleHuman}" Width="170" />
-                <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding Enabled, Mode=TwoWay}" IsReadOnly="False" Width="60" />
+                <!-- A template column, not DataGridCheckBoxColumn: the grid's IsReadOnly="True" makes
+                     every DataGridColumn read-only (a column can't opt back out), and a checkbox
+                     column would only commit on leaving the row. This checkbox commits on click. -->
+                <DataGridTemplateColumn Header="Enabled" Width="60">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox HorizontalAlignment="Center"
+                                      IsChecked="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      IsEnabled="{Binding IsNotBusy}" ToolTip="{Binding Error}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTextColumn Header="State" Binding="{Binding StateText}" Width="90" />
                 <DataGridTextColumn Header="Next run" Binding="{Binding NextRun}" Width="140" />
                 <DataGridTextColumn Header="Last run" Binding="{Binding LastRun}" Width="140" />
@@ -44,6 +55,15 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+                <!-- Why the last enable/disable didn't take (the toggle snaps back), otherwise blank. -->
+                <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="*">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="Red" />
+                            <Setter Property="TextWrapping" Value="Wrap" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
             </DataGrid.Columns>
         </DataGrid>
     </DockPanel>

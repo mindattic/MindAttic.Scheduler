@@ -40,8 +40,7 @@ public sealed class LocalTaskSchedulerProvider(string? repoPath = null) : IJobPr
     {
         if (job.IsManifest)
         {
-            JobsManifestEditor.SetEnabled(ManifestPath, job.Name, enabled);
-            ApplyManifest();
+            EditManifestAndApply(() => JobsManifestEditor.SetEnabled(ManifestPath, job.Name, enabled));
         }
         else
         {
@@ -57,9 +56,26 @@ public sealed class LocalTaskSchedulerProvider(string? repoPath = null) : IJobPr
         if (!job.IsManifest)
             throw new InvalidOperationException(
                 $"'{job.Name}' is a runtime job owned by '{job.Owner}'; its schedule is set by that app, not from here.");
-        JobsManifestEditor.SetSchedule(ManifestPath, job.Name, schedule);
-        ApplyManifest();
+        EditManifestAndApply(() => JobsManifestEditor.SetSchedule(ManifestPath, job.Name, schedule));
     }
 
-    private void ApplyManifest() => PowerShellRunner.Run(InstallScript).EnsureSuccess("install.ps1");
+    /// <summary>
+    /// Patches jobs.json, then runs install.ps1 to apply it. If install.ps1 rejects the edit, the
+    /// original jobs.json is put back: leaving the rejected edit in place would make every later
+    /// install.ps1 run fail too, and the manifest would no longer match Task Scheduler.
+    /// </summary>
+    private void EditManifestAndApply(Action edit)
+    {
+        var original = File.ReadAllText(ManifestPath);
+        try
+        {
+            edit();
+            PowerShellRunner.Run(InstallScript).EnsureSuccess("install.ps1");
+        }
+        catch
+        {
+            File.WriteAllText(ManifestPath, original);
+            throw;
+        }
+    }
 }

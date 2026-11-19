@@ -17,8 +17,8 @@ public partial class ScheduleEditorWindow : Window
 
     private void Ok_Click(object sender, RoutedEventArgs e)
     {
-        viewModel.Save();
-        DialogResult = true;
+        // Stay open (SaveError is shown) rather than save an entry install.ps1 would reject.
+        if (viewModel.TrySave()) DialogResult = true;
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;

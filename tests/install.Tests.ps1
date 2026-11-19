@@ -49,8 +49,8 @@ Describe 'jobs.json' {
         $jobs = Read-JobManifest (Join-Path $PSScriptRoot '..\jobs.json')
         $job = $jobs | Where-Object Name -eq 'IdiotProof.ResearchScan'
         $job | Should -Not -BeNullOrEmpty
-        $job.Command | Should -Be '"C:\Apps\IdiotProof\ResearchScanner\idiotproof-research-scanner.exe"'
-        $job.WorkingDirectory | Should -Be 'C:\Apps\IdiotProof\ResearchScanner'
+        $job.Command | Should -Be 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\Projects\MindAttic\IdiotProof\tools\scheduled-job.ps1" -Job IdiotProof.ResearchScan -Run "research scan"'
+        $job.WorkingDirectory | Should -Be 'C:\Apps\IdiotProof\Cli'
         @($job.Schedule).Count | Should -Be 1
         @($job.Schedule)[0].every | Should -Be '01:00:00'
         $job.TimeLimit | Should -Be ([TimeSpan]::FromMinutes(30))
@@ -320,6 +320,9 @@ Describe 'Install-SchedulerJobs against the real Task Scheduler' {
             $t = Get-ScheduledTask -TaskPath $script:Folder -TaskName 'Weekdays'
             $t.Triggers[0].CimClass.CimClassName | Should -Be 'MSFT_TaskWeeklyTrigger'
             $t.Triggers[0].DaysOfWeek | Should -Be 62   # Mon(2)+Tue(4)+Wed(8)+Thu(16)+Fri(32)
+            # Stored as local time, no 'Z'/offset, so the job doesn't drift an hour at DST
+            # (registration converts New-ScheduledTaskTrigger's UTC start to local; M.SCHD-T41).
+            $t.Triggers[0].StartBoundary | Should -Match '^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$'
         }
         finally {
             Install-SchedulerJobs -Manifest (Write-Manifest @(@{ name = 'Tick'; command = $script:Cmd; schedule = @{ every = '00:05:00' } })) -TaskPath $script:Folder | Out-Null

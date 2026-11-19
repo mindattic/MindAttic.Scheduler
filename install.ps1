@@ -333,8 +333,9 @@ function Install-SchedulerJobs {
         }
 
         # A daemon shouldn't wait for the next logon, least of all right after its old task was
-        # stopped above.
-        if ($job.KeepRunning) {
+        # stopped above. Not a disabled one, though: starting it would run a daemon the manifest
+        # switched off (or fail on the disabled task and abort the rest of the install).
+        if ($job.KeepRunning -and $job.Enabled) {
             $state = (Get-ScheduledTask -TaskPath $folder -TaskName $job.Name).State
             if ($state -ne 'Running' -and $PSCmdlet.ShouldProcess("$folder$($job.Name)", 'start')) {
                 Start-ScheduledTask -TaskPath $folder -TaskName $job.Name

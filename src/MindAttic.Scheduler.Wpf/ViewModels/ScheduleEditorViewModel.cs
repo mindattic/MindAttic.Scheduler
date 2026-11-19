@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using MindAttic.Components.Wpf.Mvvm;
 using MindAttic.Scheduler.Core;
 
@@ -21,9 +22,15 @@ public sealed class ScheduleEditorViewModel : ObservableObject
     private string cronError = "";
     private string previewHuman = "";
     private bool suppressBuilderToCron;
+    private string saveError = "";
+
+    // The editor edits a job's first schedule entry; any further entries (a job can fire at
+    // several daily times) are kept exactly as they were, never silently dropped on save.
+    private readonly IReadOnlyList<ScheduleEntry> otherEntries;
 
     public ScheduleEditorViewModel(IReadOnlyList<ScheduleEntry> initial)
     {
+        otherEntries = initial.Skip(1).ToList();
         var first = initial.FirstOrDefault() ?? new ScheduleEntry { Daily = "09:00" };
         ApplyToBuilder(first);
         UpdatePreviewFromBuilder();
@@ -90,8 +97,44 @@ public sealed class ScheduleEditorViewModel : ObservableObject
 
     public string PreviewHuman { get => previewHuman; private set => Set(ref previewHuman, value); }
 
-    /// <summary>Call once the dialog's OK is pressed; fills <see cref="Result"/>.</summary>
-    public void Save() => Result = [BuildEntry()];
+    /// <summary>Why the last OK was refused (install.ps1 would reject the entry), or "".</summary>
+    public string SaveError
+    {
+        get => saveError;
+        private set { if (Set(ref saveError, value)) Raise(nameof(HasSaveError)); }
+    }
+
+    public bool HasSaveError => !string.IsNullOrEmpty(SaveError);
+
+    /// <summary>"This job also runs at ..." for a job with more than one schedule entry, or "".</summary>
+    public string OtherEntriesNote => otherEntries.Count == 0 ? "" :
+        $"This job has {otherEntries.Count} more schedule entr{(otherEntries.Count == 1 ? "y" : "ies")} " +
+        "(only the first is edited here); they are kept as they are.";
+
+    public bool HasOtherEntries => otherEntries.Count > 0;
+
+    /// <summary>
+    /// Call once the dialog's OK is pressed: fills <see cref="Result"/> and returns true, or
+    /// returns false with <see cref="SaveError"/> set when the builder holds something install.ps1
+    /// would reject (saving it would leave jobs.json unappliable).
+    /// </summary>
+    public bool TrySave()
+    {
+        var error = Validate();
+        SaveError = error ?? "";
+        if (error is not null) return false;
+        Result = [BuildEntry(), .. otherEntries];
+        return true;
+    }
+
+    private string? Validate() => Kind switch
+    {
+        ScheduleKind.Every when EveryValue < 1 => "The repeat interval must be at least 1.",
+        ScheduleKind.Daily when !Regex.IsMatch(DailyTime ?? "", @"^([01]\d|2[0-3]):[0-5]\d$") =>
+            "The time must be a 24-hour HH:mm time, e.g. 09:00 or 21:30.",
+        ScheduleKind.Daily when !(Mon || Tue || Wed || Thu || Fri || Sat || Sun) => "Pick at least one day.",
+        _ => null,
+    };
 
     private void RaiseKindFlags()
     {
@@ -120,7 +163,7 @@ public sealed class ScheduleEditorViewModel : ObservableObject
         if (Fri) days.Add("Fri");
         if (Sat) days.Add("Sat");
         if (Sun) days.Add("Sun");
-        // Every day (or nothing picked yet) means "no filter", matching jobs.json's plain daily.
+        // Every day means "no filter", matching jobs.json's plain daily (none picked is refused by Validate).
         return days.Count is 0 or 7 ? null : [.. days];
     }
 
@@ -167,7 +210,12 @@ public sealed class ScheduleEditorViewModel : ObservableObject
         var cron = CronTranslator.ToCronText([BuildEntry()]);
         suppressBuilderToCron = true;
         try { CronText = cron; } finally { suppressBuilderToCron = false; }
-        PreviewHuman = CronTranslator.ToHumanText(cron);
+        // An interval cron can't express exactly (e.g. every 90 minutes) has no cron text; describe
+        // it directly rather than feeding "" to the cron describer, which reports it as invalid.
+        PreviewHuman = cron.Length > 0 ? CronTranslator.ToHumanText(cron)
+            : Kind == ScheduleKind.Every ? $"Every {EveryValue} {EveryUnit.ToLowerInvariant()} (no exact cron equivalent)."
+            : "Enter a 24-hour HH:mm time.";
         CronError = "";
+        SaveError = "";
     }
 }

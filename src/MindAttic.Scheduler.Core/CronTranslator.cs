@@ -49,15 +49,17 @@ public static class CronTranslator
             return false;
         }
 
-        if (hour == "*" && dayOfWeek == "*" && Regex.IsMatch(minute, @"^\*/\d+$"))
+        // A cron step restarts at the top of each hour/day ("*/45" fires at :00 and :45), so it is
+        // a steady "every N" only when N divides 60 minutes / 24 hours evenly.
+        if (hour == "*" && dayOfWeek == "*" && TryParseStep(minute, 60, out var everyMinutes))
         {
-            schedule = [new ScheduleEntry { Every = TimeSpan.FromMinutes(int.Parse(minute[2..])).ToString() }];
+            schedule = [new ScheduleEntry { Every = TimeSpan.FromMinutes(everyMinutes).ToString() }];
             return true;
         }
 
-        if (dayOfWeek == "*" && minute == "0" && Regex.IsMatch(hour, @"^\*/\d+$"))
+        if (dayOfWeek == "*" && minute == "0" && TryParseStep(hour, 24, out var everyHours))
         {
-            schedule = [new ScheduleEntry { Every = TimeSpan.FromHours(int.Parse(hour[2..])).ToString() }];
+            schedule = [new ScheduleEntry { Every = TimeSpan.FromHours(everyHours).ToString() }];
             return true;
         }
 
@@ -77,7 +79,8 @@ public static class CronTranslator
         }
 
         error = $"'{cronExpression}' describes a schedule this scheduler's triggers can't represent yet " +
-                "(supported: every N minutes/hours, or a fixed daily time with an optional day-of-week list).";
+                "(supported: every N minutes/hours where N divides an hour/day evenly, or a fixed daily time " +
+                "with an optional day-of-week list).";
         return false;
     }
 
@@ -89,9 +92,14 @@ public static class CronTranslator
 
         if (entry.Every is { } every && TimeSpan.TryParse(every, out var span))
         {
-            return span.TotalHours >= 1 && span.Minutes == 0 && span.Seconds == 0
-                ? $"0 */{(int)span.TotalHours} * * *"
-                : $"*/{Math.Max(1, (int)span.TotalMinutes)} * * * *";
+            // Only intervals that divide an hour/day evenly have an exact cron step (see TryParse);
+            // anything else (e.g. every 90 minutes) has no cron equivalent, so no cron text.
+            if (span.Seconds != 0 || span.Milliseconds != 0 || span <= TimeSpan.Zero) return "";
+            var minutes = (int)span.TotalMinutes;
+            if (minutes < 60) return 60 % minutes == 0 ? $"*/{minutes} * * * *" : "";
+            if (minutes % 60 != 0) return "";
+            var hours = minutes / 60;
+            return hours < 24 && 24 % hours == 0 ? $"0 */{hours} * * *" : "";
         }
 
         if (entry.Daily is { } daily && TimeSpan.TryParse(daily, out var t))
@@ -103,6 +111,16 @@ public static class CronTranslator
         }
 
         return "";
+    }
+
+    /// <summary>"*/N" where N is 1..period-1 and divides <paramref name="period"/> evenly.</summary>
+    private static bool TryParseStep(string field, int period, out int step)
+    {
+        step = 0;
+        var match = Regex.Match(field, @"^\*/(\d{1,4})$");
+        if (!match.Success) return false;
+        step = int.Parse(match.Groups[1].Value);
+        return step >= 1 && step < period && period % step == 0;
     }
 
     private static bool TryParseDaysOfWeek(string field, out string[] days)

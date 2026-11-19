@@ -177,8 +177,14 @@ Describe 'scheduler job status/enable/disable against the real Task Scheduler' {
 
         Add-SchedulerJob -Name 'Ping' -Owner $script:StatusOwner -Every '00:10:00' -Command 'cmd.exe /c exit 0' -Root $script:StatusRoot | Out-Null
 
-        $jobs = @(Get-AllSchedulerJobs -Root $script:StatusRoot -Manifest $manifest)
+        # No @(): Get-AllSchedulerJobs returns its array whole, and @() would nest it (M.SCHD-T41).
+        $jobs = Get-AllSchedulerJobs -Root $script:StatusRoot -Manifest $manifest
+        $jobs.Count | Should -Be 2
         ($jobs.name | Sort-Object) -join ',' | Should -Be 'Nightly,Ping'
+        # --json shape: a flat list, and a one-entry schedule still an array (the dashboard
+        # deserializes scheduleRaw as a list; an object there broke every row).
+        (ConvertTo-Json -InputObject $jobs -Depth 6 -Compress) | Should -Match '^\[\{'
+        (ConvertTo-Json -InputObject $jobs -Depth 6 -Compress) | Should -Not -Match '"scheduleRaw":\{'
 
         $nightly = $jobs | Where-Object name -eq 'Nightly'
         $nightly.source | Should -Be 'manifest'
@@ -197,7 +203,8 @@ Describe 'scheduler job status/enable/disable against the real Task Scheduler' {
     It 'disables and re-enables a runtime job, and refuses an unknown one' {
         Disable-SchedulerJob -Name 'Ping' -Owner $script:StatusOwner -Root $script:StatusRoot | Out-Null
         (Get-ScheduledTask -TaskPath $script:StatusOwnerFolder -TaskName 'Ping').Settings.Enabled | Should -BeFalse
-        (Get-AllSchedulerJobs -Root $script:StatusRoot | Where-Object name -eq 'Ping').enabled | Should -BeFalse
+        $all = Get-AllSchedulerJobs -Root $script:StatusRoot
+        ($all | Where-Object name -eq 'Ping').enabled | Should -BeFalse
 
         Enable-SchedulerJob -Name 'Ping' -Owner $script:StatusOwner -Root $script:StatusRoot | Out-Null
         (Get-ScheduledTask -TaskPath $script:StatusOwnerFolder -TaskName 'Ping').Settings.Enabled | Should -BeTrue
