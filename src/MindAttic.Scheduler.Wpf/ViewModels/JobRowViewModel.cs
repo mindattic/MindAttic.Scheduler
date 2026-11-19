@@ -10,6 +10,7 @@ public sealed class JobRowViewModel(JobStatus status, IJobProvider provider) : O
     private JobStatus status = status;
     private bool isBusy;
     private string? error;
+    private JobSummary? history;
 
     public JobStatus Status
     {
@@ -31,6 +32,23 @@ public sealed class JobRowViewModel(JobStatus status, IJobProvider provider) : O
     public bool CanEditSchedule => Status.IsManifest;
     public string NextRun => FormatLocal(Status.NextRun);
     public string LastRun => FormatLocal(Status.LastRun);
+
+    /// <summary>The job's run history (M.SCHD-T42), or null when it has none or the database couldn't be read.</summary>
+    public JobSummary? History
+    {
+        get => history;
+        set
+        {
+            if (!Set(ref history, value)) return;
+            Raise(nameof(LastResult)); Raise(nameof(UsualDuration));
+        }
+    }
+
+    /// <summary>"succeeded", "failed (exit N)", "running" or "abandoned"; blank with no runs.</summary>
+    public string LastResult => History?.Last is { } last ? Display.Outcome(last) : "";
+
+    /// <summary>The average of the last successful runs, e.g. "12m 30s"; blank with none.</summary>
+    public string UsualDuration => History?.UsualDuration is { } d ? Display.Duration(d) : "";
 
     public bool IsBusy { get => isBusy; private set { if (Set(ref isBusy, value)) Raise(nameof(IsNotBusy)); } }
     public bool IsNotBusy => !IsBusy;

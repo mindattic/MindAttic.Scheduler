@@ -16,10 +16,27 @@
             <ComboBox Width="100" Margin="8,0,0,0" ItemsSource="{Binding EveryUnits}" SelectedItem="{Binding EveryUnit}" />
         </StackPanel>
 
-        <RadioButton GroupName="Kind" Content="Daily, at a fixed time"
+        <RadioButton GroupName="Kind" Content="Daily, at a fixed time (pinned)"
                      IsChecked="{Binding Kind, Converter={StaticResource EnumMatch}, ConverterParameter=Daily}" />
         <StackPanel Margin="24,4,0,8" Visibility="{Binding IsDaily, Converter={StaticResource Visible}}">
             <TextBox Width="80" HorizontalAlignment="Left" Text="{Binding DailyTime, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBlock Text="Only on:" Margin="0,8,0,4" />
+            <WrapPanel>
+                <CheckBox Content="Mon" IsChecked="{Binding Mon}" Margin="0,0,10,0" />
+                <CheckBox Content="Tue" IsChecked="{Binding Tue}" Margin="0,0,10,0" />
+                <CheckBox Content="Wed" IsChecked="{Binding Wed}" Margin="0,0,10,0" />
+                <CheckBox Content="Thu" IsChecked="{Binding Thu}" Margin="0,0,10,0" />
+                <CheckBox Content="Fri" IsChecked="{Binding Fri}" Margin="0,0,10,0" />
+                <CheckBox Content="Sat" IsChecked="{Binding Sat}" Margin="0,0,10,0" />
+                <CheckBox Content="Sun" IsChecked="{Binding Sun}" />
+            </WrapPanel>
+        </StackPanel>
+
+        <RadioButton GroupName="Kind" Content="Overnight (auto-arranged)"
+                     IsChecked="{Binding Kind, Converter={StaticResource EnumMatch}, ConverterParameter=Overnight}" />
+        <StackPanel Margin="24,4,0,8" Visibility="{Binding IsOvernight, Converter={StaticResource Visible}}">
+            <TextBlock Text="Optimize picks the start time between 00:00 and 08:00, heaviest jobs first, never two at once."
+                       TextWrapping="Wrap" Opacity="0.7" />
             <TextBlock Text="Only on:" Margin="0,8,0,4" />
             <WrapPanel>
                 <CheckBox Content="Mon" IsChecked="{Binding Mon}" Margin="0,0,10,0" />

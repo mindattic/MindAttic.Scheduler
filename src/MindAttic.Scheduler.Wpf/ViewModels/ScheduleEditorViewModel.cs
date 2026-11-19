@@ -49,6 +49,7 @@ public sealed class ScheduleEditorViewModel : ObservableObject
 
     public bool IsEvery => Kind == ScheduleKind.Every;
     public bool IsDaily => Kind == ScheduleKind.Daily;
+    public bool IsOvernight => Kind == ScheduleKind.Overnight;
     public bool IsAtLogon => Kind == ScheduleKind.AtLogon;
 
     public int EveryValue { get => everyValue; set { if (Set(ref everyValue, value)) UpdatePreviewFromBuilder(); } }
@@ -132,7 +133,7 @@ public sealed class ScheduleEditorViewModel : ObservableObject
         ScheduleKind.Every when EveryValue < 1 => "The repeat interval must be at least 1.",
         ScheduleKind.Daily when !Regex.IsMatch(DailyTime ?? "", @"^([01]\d|2[0-3]):[0-5]\d$") =>
             "The time must be a 24-hour HH:mm time, e.g. 09:00 or 21:30.",
-        ScheduleKind.Daily when !(Mon || Tue || Wed || Thu || Fri || Sat || Sun) => "Pick at least one day.",
+        ScheduleKind.Daily or ScheduleKind.Overnight when !(Mon || Tue || Wed || Thu || Fri || Sat || Sun) => "Pick at least one day.",
         _ => null,
     };
 
@@ -140,6 +141,7 @@ public sealed class ScheduleEditorViewModel : ObservableObject
     {
         Raise(nameof(IsEvery));
         Raise(nameof(IsDaily));
+        Raise(nameof(IsOvernight));
         Raise(nameof(IsAtLogon));
     }
 
@@ -150,6 +152,7 @@ public sealed class ScheduleEditorViewModel : ObservableObject
             Every = TimeSpan.FromMinutes(EveryUnit == "Hours" ? EveryValue * 60 : EveryValue).ToString(),
         },
         ScheduleKind.AtLogon => new ScheduleEntry { AtLogon = true },
+        ScheduleKind.Overnight => new ScheduleEntry { Daily = ManifestJob.Auto, DaysOfWeek = SelectedDays() },
         _ => new ScheduleEntry { Daily = DailyTime, DaysOfWeek = SelectedDays() },
     };
 
@@ -178,8 +181,11 @@ public sealed class ScheduleEditorViewModel : ObservableObject
         else if (entry.AtLogon == true) { kind = ScheduleKind.AtLogon; }
         else
         {
-            kind = ScheduleKind.Daily;
-            dailyTime = entry.Daily ?? dailyTime;
+            // "daily": "auto" is an arranged overnight slot, not a time; the time box keeps its last
+            // real time so switching back to Daily doesn't show "auto".
+            var overnight = ManifestJob.IsAutoEntry(entry);
+            kind = overnight ? ScheduleKind.Overnight : ScheduleKind.Daily;
+            if (!overnight) dailyTime = entry.Daily ?? dailyTime;
             var days = entry.DaysOfWeek;
             mon = days?.Contains("Mon") ?? true;
             tue = days?.Contains("Tue") ?? true;
@@ -204,6 +210,19 @@ public sealed class ScheduleEditorViewModel : ObservableObject
             try { CronText = ""; } finally { suppressBuilderToCron = false; }
             PreviewHuman = "At logon.";
             CronError = "";
+            return;
+        }
+
+        if (Kind == ScheduleKind.Overnight)
+        {
+            // An arranged slot moves night to night, so it has no cron text.
+            suppressBuilderToCron = true;
+            try { CronText = ""; } finally { suppressBuilderToCron = false; }
+            var days = SelectedDays();
+            PreviewHuman = "Overnight, at the slot the arranger picks (finished by 08:00)" +
+                           (days is null ? ", every day." : $", on {string.Join(", ", days)}.");
+            CronError = "";
+            SaveError = "";
             return;
         }
 

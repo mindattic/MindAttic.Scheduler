@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\MindAttic.Scheduler.Core\MindAttic.Scheduler.Core.csproj" />
+    <ProjectReference Include="..\..\src\MindAttic.Scheduler.Cli\MindAttic.Scheduler.Cli.csproj" />
   </ItemGroup>
 
 </Project>

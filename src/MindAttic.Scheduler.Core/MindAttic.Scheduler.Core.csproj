@@ -10,6 +10,12 @@
          (M.SCHD-T38), even for shapes CronTranslator can't map onto a Windows Task Scheduler
          trigger; the mapping itself is this project's own, deliberately narrow code. -->
     <PackageReference Include="CronExpressionDescriptor" Version="2.37.0" />
+    <!-- The run log (M.SCHD-T42): the MindAttic.Scheduler database, LocalDB in dev and Azure SQL
+         in production, the same versions MindAttic.Tickets uses. -->
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.7" />
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
+    <!-- SqlClient 6.1.7 pulls Pkcs 9.0.11, which has known advisories; pinned up as Tickets does. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
   </ItemGroup>
 
   <ItemGroup>

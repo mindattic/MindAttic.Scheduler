@@ -61,6 +61,6 @@ _Nothing recorded yet._
 | M.SCHD-T38 | 2026-11-18 | feature | open | Add a UI that lists every scheduled job, its description, cron/schedule, enabled state and last-fired time, with an edit-schedule and enable/disable control, behind a provider abstraction so the job source can be local Task Scheduler now and an Azure-hosted environment later | — |
 | M.SCHD-T39 | 2026-11-18 | chore | closed | Add 7 file(s); Update 7 file(s) | — |
 | M.SCHD-T40 | 2026-11-19 | feature | closed | Owner 2026-11-19: a Scheduler job keeps the GLMZ wiki (mindattic.com/glmz) up to date with the Prose database by running Prose tools/wiki/sync-wiki.ps1 -Universe glmz on a schedule | PRS-T1022 |
-| M.SCHD-T41 | 2026-11-19 | fix | open | Bughunt: exhaustive sweep of MindAttic.Scheduler source, fix every real bug found | — |
+| M.SCHD-T41 | 2026-11-19 | fix | closed | Bughunt: exhaustive sweep of MindAttic.Scheduler source, fix every real bug found | — |
 | M.SCHD-T42 | 2026-11-19 | feature | open | Scheduler: overnight jobs auto-arrange (one start at a time, heaviest first from midnight, staggered, all done by 08:00) unless pinned; an Optimize action re-arranges; every job run is recorded (start, end, exit code) so we know each night worked | — |
-| M.SCHD-T43 | 2026-11-19 | chore | open | Azure backup jobs: 30-day rolling retention flags for Azure.BackupNightly/Weekly and a new monthly Azure.RestoreDrill job (root ticket MAT-T156) | — |
+| M.SCHD-T43 | 2026-11-19 | chore | closed | Azure backup jobs: 30-day rolling retention flags for Azure.BackupNightly/Weekly and a new monthly Azure.RestoreDrill job (root ticket MAT-T156) | — |

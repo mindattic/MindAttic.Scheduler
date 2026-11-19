@@ -1,0 +1,82 @@
+<Window x:Class="MindAttic.Scheduler.Wpf.OptimizePreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="clr-namespace:MindAttic.Components.Wpf.Controls;assembly=MindAttic.Components.Wpf"
+        Title="Optimize overnight jobs" Width="760" Height="520"
+        WindowStartupLocation="CenterOwner">
+    <DockPanel Margin="16">
+        <TextBlock DockPanel.Dock="Top" Text="{Binding Summary}" TextWrapping="Wrap" FontWeight="SemiBold">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Fits}" Value="False">
+                            <Setter Property="Foreground" Value="Red" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
+        <TextBlock DockPanel.Dock="Top" Text="{Binding GapText}" Margin="0,4,0,0" Opacity="0.7" />
+        <TextBlock DockPanel.Dock="Top" Text="{Binding DatabaseNote}" Margin="0,4,0,0" TextWrapping="Wrap" Opacity="0.7"
+                   Visibility="{Binding HasDatabaseNote, Converter={StaticResource Visible}}" />
+
+        <StackPanel DockPanel.Dock="Bottom">
+            <TextBox Text="{Binding ApplyError, Mode=OneWay}" Foreground="Red" IsReadOnly="True" TextWrapping="Wrap"
+                     MaxHeight="120" VerticalScrollBarVisibility="Auto" Margin="0,8,0,0"
+                     Visibility="{Binding HasApplyError, Converter={StaticResource Visible}}" />
+            <DockPanel Margin="0,16,0,0">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <ctl:MaButton Content="Cancel" Width="80" Margin="0,0,8,0" IsCancel="True" Click="Cancel_Click" />
+                    <ctl:MaButton Content="Apply" Width="80" IsDefault="True" Command="{Binding ApplyCommand}" />
+                </StackPanel>
+                <TextBlock Text="Saving the arrangement and running install.ps1…" VerticalAlignment="Center" Opacity="0.7"
+                           Visibility="{Binding IsApplying, Converter={StaticResource Visible}}" />
+            </DockPanel>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+            <TextBlock Text="Pinned jobs it went around:" />
+            <ItemsControl ItemsSource="{Binding Pinned}" Margin="12,2,0,0"
+                          Visibility="{Binding HasPinned, Converter={StaticResource Visible}}" />
+            <TextBlock Text="None." Margin="12,2,0,0" Opacity="0.7"
+                       Visibility="{Binding HasNoPinned, Converter={StaticResource Visible}}" />
+        </StackPanel>
+
+        <Grid Margin="0,12,0,0">
+            <DataGrid ItemsSource="{Binding Slots}" AutoGenerateColumns="False" IsReadOnly="True"
+                      CanUserAddRows="False" CanUserDeleteRows="False" GridLinesVisibility="Horizontal">
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Overruns}" Value="True">
+                                <Setter Property="Foreground" Value="Red" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Job" Binding="{Binding Name}" Width="*" />
+                    <DataGridTextColumn Header="Current start" Binding="{Binding CurrentStart}" Width="95" />
+                    <DataGridTextColumn Header="Proposed start" Binding="{Binding ProposedStart}" Width="100">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Moves}" Value="True">
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="80" />
+                    <DataGridTextColumn Header="From" Binding="{Binding Source}" Width="80" />
+                    <DataGridTextColumn Header="Predicted end" Binding="{Binding PredictedEnd}" Width="95" />
+                    <DataGridTextColumn Header="" Binding="{Binding OverrunText}" Width="70" />
+                </DataGrid.Columns>
+            </DataGrid>
+            <TextBlock Text="No job in jobs.json has an overnight (auto-arranged) schedule." Margin="8,32,8,0"
+                       HorizontalAlignment="Center" Opacity="0.7"
+                       Visibility="{Binding HasNoSlots, Converter={StaticResource Visible}}" />
+        </Grid>
+    </DockPanel>
+</Window>

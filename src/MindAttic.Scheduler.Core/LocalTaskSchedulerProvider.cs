@@ -13,7 +13,7 @@ public sealed class LocalTaskSchedulerProvider(string? repoPath = null) : IJobPr
 {
     private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
 
-    private readonly string repoRoot = repoPath ?? @"D:\Projects\MindAttic\MindAttic.Scheduler";
+    private readonly string repoRoot = repoPath ?? SchedulerPaths.Repo;
 
     private string SchedulerScript => Path.Combine(repoRoot, "scheduler.ps1");
     private string InstallScript => Path.Combine(repoRoot, "install.ps1");

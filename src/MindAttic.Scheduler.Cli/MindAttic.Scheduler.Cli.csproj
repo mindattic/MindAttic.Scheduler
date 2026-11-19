@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>MindAttic.Scheduler.Cli</RootNamespace>
+    <!-- M.SCHD-T42: the run wrapper, the overnight arranger and the run log, published by release.ps1
+         next to the dashboard as C:\Apps\MindAttic.Scheduler\mindattic-scheduler.exe. -->
+    <AssemblyName>mindattic-scheduler</AssemblyName>
+    <!-- HOUSE-LAW-1: whole-number versions only; bump the major. -->
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MindAttic.Scheduler.Core\MindAttic.Scheduler.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MindAttic.Scheduler.Core.Tests" />
+  </ItemGroup>
+
+</Project>

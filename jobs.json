@@ -1,5 +1,5 @@
 {
-  "$comment": "Every MindAttic scheduled job (MindAttic.Scheduler, formerly MindAttic.WatchDog). install.ps1 registers each one under \\MindAttic\\Scheduler\\ (HOUSE-LAW-11), wrapped in conhost --headless (a GUI-subsystem program is started directly). See README.md for the fields.",
+  "$comment": "Every MindAttic scheduled job (MindAttic.Scheduler, formerly MindAttic.WatchDog). install.ps1 registers each one under \\MindAttic\\Scheduler\\ (HOUSE-LAW-11), wrapped in conhost --headless and the mindattic-scheduler run wrapper (a GUI-subsystem program is started directly; a keepRunning daemon skips the run wrapper). \"daily\": \"auto\" jobs start at the slot Scheduler.Arrange puts in arrangement.json. See README.md for the fields.",
   "jobs": [
     {
       "name": "Automata.Tick",
@@ -13,9 +13,10 @@
     },
     {
       "name": "Launcher.NightlyBackup",
-      "description": "Launcher nightly backup at midnight, keeping the newest 30. Runs while you are logged on; a missed midnight runs as soon as the machine is next available.",
+      "description": "Launcher nightly backup, keeping the newest 30. Overnight, at the slot Scheduler.Arrange gives it (one job at a time). Runs while you are logged on; a missed slot runs as soon as the machine is next available.",
       "command": "\"C:\\Apps\\MindAttic.Launcher\\MindAttic.Launcher.exe\" backup --keep 30",
-      "schedule": { "daily": "00:00" },
+      "schedule": { "daily": "auto" },
+      "estimate": "00:30:00",
       "replaces": ["\\MindAttic\\Launcher\\MindAtticLauncherNightlyBackup", "MindAtticLauncherNightlyBackup"]
     },
     {
@@ -77,18 +78,20 @@
     },
     {
       "name": "IdiotProof.DataMirror",
-      "description": "IdiotProof: mirrors D:\\IdiotProofData (gapper-study bars, SEC company facts, FINRA, halts, radar, momentum; ~35 GB) to R:\\Backup\\IdiotProofData with robocopy /MIR, only what changed, build scratch folders skipped (IP-T581). 02:30 Central, after the Launcher backup's busiest stretch. Log: scheduler-jobs.log.",
+      "description": "IdiotProof: mirrors D:\\IdiotProofData (gapper-study bars, SEC company facts, FINRA, halts, radar, momentum; ~35 GB) to R:\\Backup\\IdiotProofData with robocopy /MIR, only what changed, build scratch folders skipped (IP-T581). Overnight, at the slot Scheduler.Arrange gives it; the overnight lock keeps it from overlapping the Launcher backup or any other arranged job. Log: scheduler-jobs.log.",
       "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\IdiotProof\\tools\\mirror-data.ps1\"",
       "workingDirectory": "D:\\Projects\\MindAttic\\IdiotProof",
-      "schedule": { "daily": "02:30" },
+      "schedule": { "daily": "auto" },
+      "estimate": "00:30:00",
       "timeLimit": "03:00:00"
     },
     {
       "name": "JellyFinPoster.Refresh",
-      "description": "Refreshes the Jellyfin Movies/TV Shows library artwork from trending TMDB titles, daily at midnight; a missed run catches up on the next wake or logon.",
+      "description": "Refreshes the Jellyfin Movies/TV Shows library artwork from trending TMDB titles, nightly at the slot Scheduler.Arrange gives it; a missed run catches up on the next wake or logon.",
       "command": "pythonw \"D:\\Projects\\MindAttic\\JellyFinPoster\\jellyfin_poster.py\"",
       "workingDirectory": "D:\\Projects\\MindAttic\\JellyFinPoster",
-      "schedule": { "daily": "00:00" },
+      "schedule": { "daily": "auto" },
+      "estimate": "00:10:00",
       "replaces": ["\\MindAttic\\JellyFinPoster\\JellyfinPosterRefresh", "JellyfinPosterRefresh"]
     },
     {
@@ -119,18 +122,20 @@
     },
     {
       "name": "GridGame.Nightly",
-      "description": "GridGame Gaiden nightly run (owner 2026-11-17: tests and telemetry overnight, never during the working day): the full test suite on a clean origin/main copy, bot balance soaks, a dev build and an endless telemetry run with its report, and a fix ticket per new failing test. Logs and summary.md land in Unity.GridGame/artifacts/nightly/<date>.",
+      "description": "GridGame Gaiden nightly run (owner 2026-11-17: tests and telemetry overnight, never during the working day): the full test suite on a clean origin/main copy, bot balance soaks, a dev build and an endless telemetry run with its report, and a fix ticket per new failing test. Overnight, at the slot Scheduler.Arrange gives it. Logs and summary.md land in Unity.GridGame/artifacts/nightly/<date>.",
       "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\Unity.GridGame\\tools\\nightly.ps1\"",
       "workingDirectory": "D:\\Projects\\MindAttic\\Unity.GridGame",
-      "schedule": { "daily": "02:00" },
+      "schedule": { "daily": "auto" },
+      "estimate": "02:00:00",
       "timeLimit": "06:00:00"
     },
     {
       "name": "Azure.BackupNightly",
-      "description": "Azure SQL backup, nightly tier (MAT-T147, docs/ops/azure-migration/BACKUP.md): a full export (bacpac) of every always-on DTU database (IdiotProof, ClaudeActivity, MindAttic.Tickets, MindAttic.Orchestrator and any other Basic/Standard database on the server) to R:\\Backup\\MindAttic\\azure, to blob db-backups/bacpac and, off Azure, to the mindattic.com hosting account over FTPS (/Backups/azure, MAT-T156), each checked offline. Retention on all three: 30 days rolling, never fewer than the newest 2 per database. An FTP failure does not fail the backup (exit code 2, reported in the log). Logs: R:\\Backup\\MindAttic\\azure\\logs.",
+      "description": "Azure SQL backup, nightly tier (MAT-T147, docs/ops/azure-migration/BACKUP.md): a full export (bacpac) of every always-on DTU database (IdiotProof, ClaudeActivity, MindAttic.Tickets, MindAttic.Orchestrator and any other Basic/Standard database on the server) to R:\\Backup\\MindAttic\\azure, to blob db-backups/bacpac and, off Azure, to the mindattic.com hosting account over FTPS (/Backups/azure, MAT-T156), each checked offline. Retention on all three: 30 days rolling, never fewer than the newest 2 per database. An FTP failure does not fail the backup (exit code 2, reported in the log). Overnight, at the slot Scheduler.Arrange gives it. Logs: R:\\Backup\\MindAttic\\azure\\logs.",
       "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\docs\\ops\\azure-migration\\Backup-Scheduled.ps1\" -Tier AlwaysOn -KeepDays 30 -KeepMinimum 2",
       "workingDirectory": "D:\\Projects\\MindAttic\\docs\\ops\\azure-migration",
-      "schedule": { "daily": "01:15" },
+      "schedule": { "daily": "auto" },
+      "estimate": "00:20:00",
       "timeLimit": "02:00:00"
     },
     {
@@ -143,10 +148,11 @@
     },
     {
       "name": "Azure.BackupWeekly",
-      "description": "Azure SQL backup, weekly and large tiers (MAT-T147, docs/ops/azure-migration/BACKUP.md). Runs every night but exports a free-offer serverless database at most once every 7 days (the four over 2 GB - Prose, IdiotProof_History, IdiotProof_Research_GAP, IdiotProof_Research_T375 - every 28 days), and never one that is paused and unchanged since its last export, so paused databases are not woken and the 100,000 vCore-second monthly allowance is kept for real work. Same three destinations (disk, blob, FTP), offline check and retention as Azure.BackupNightly: 30 days rolling, never fewer than the newest 2 per database (MAT-T156). Logs: R:\\Backup\\MindAttic\\azure\\logs.",
+      "description": "Azure SQL backup, weekly and large tiers (MAT-T147, docs/ops/azure-migration/BACKUP.md). Runs every night but exports a free-offer serverless database at most once every 7 days (the four over 2 GB - Prose, IdiotProof_History, IdiotProof_Research_GAP, IdiotProof_Research_T375 - every 28 days), and never one that is paused and unchanged since its last export, so paused databases are not woken and the 100,000 vCore-second monthly allowance is kept for real work. Same three destinations (disk, blob, FTP), offline check and retention as Azure.BackupNightly: 30 days rolling, never fewer than the newest 2 per database (MAT-T156). Overnight, at the slot Scheduler.Arrange gives it; most nights export little, but a night the large databases are due runs for hours. Logs: R:\\Backup\\MindAttic\\azure\\logs.",
       "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\docs\\ops\\azure-migration\\Backup-Scheduled.ps1\" -Tier Serverless,Large -ServerlessEveryDays 7 -LargeEveryDays 28 -KeepDays 30 -KeepMinimum 2",
       "workingDirectory": "D:\\Projects\\MindAttic\\docs\\ops\\azure-migration",
-      "schedule": { "daily": "04:30" },
+      "schedule": { "daily": "auto" },
+      "estimate": "01:00:00",
       "timeLimit": "08:00:00"
     },
     {
@@ -156,6 +162,13 @@
       "workingDirectory": "D:\\Projects\\MindAttic\\docs\\ops\\azure-migration",
       "schedule": { "daily": "06:30", "daysOfWeek": ["Sun"] },
       "timeLimit": "02:00:00"
+    },
+    {
+      "name": "Scheduler.Arrange",
+      "description": "Arranges tonight's overnight jobs (M.SCHD-T42): mindattic-scheduler arrange keeps the \"daily\": \"auto\" slots in %LOCALAPPDATA%\\MindAttic\\Scheduler\\arrangement.json, re-placing them from each job's measured run time (else its estimate) only when something is wrong - a new or removed job, two starts colliding, or a predicted finish after 08:00 - then reruns install.ps1 so Task Scheduler has the new times. Pinned at 23:30, before the window it arranges.",
+      "command": "\"C:\\Apps\\MindAttic.Scheduler\\mindattic-scheduler.exe\" arrange",
+      "schedule": { "daily": "23:30" },
+      "timeLimit": "00:30:00"
     }
   ]
 }

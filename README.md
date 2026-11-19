@@ -13,6 +13,9 @@ Scheduled Task its own way, each job is a line in [`jobs.json`](jobs.json) and
   exit at once, so it is started directly and the task tracks the real process. That is read from
   the exe's header at install time (a bare name such as `pythonw` is first resolved through PATH
   and then run by its full path); if the exe isn't there yet, rerun the install once it is;
+- every other job except a `keepRunning` daemon also runs through the [run wrapper](#the-run-wrapper-and-the-run-log),
+  which records each run and its exit code;
+- a `"daily": "auto"` job starts at the slot the [arranger](#overnight-jobs-daily-auto) gave it;
 - the older copies a job lists under `replaces` are stopped and unregistered, and their folder is
   removed once it is empty;
 - any task directly in `\MindAttic\Scheduler\` that the manifest no longer lists is unregistered.
@@ -47,7 +50,8 @@ would unregister every Scheduler job). Write `"jobs": []` to really have none.
 |---|---|---|
 | `name` | yes | Task name under `\MindAttic\Scheduler\`. Letters, digits, `.`, `_`, `-`, space; unique. |
 | `command` | yes | The full command line (program, quoted if it has spaces, then its arguments). `%VAR%` environment variables are expanded at install time. |
-| `schedule` | yes | One entry or a list of them. Each entry has exactly one of: `{"every": "hh:mm:ss"}` (repeat forever, at least a minute apart), `{"daily": "HH:mm"}`, `{"atLogon": true}`. A `daily` entry may add `"daysOfWeek": ["Mon", ...]` (`Mon`/`Tue`/`Wed`/`Thu`/`Fri`/`Sat`/`Sun`) to run on only those days instead of every day. |
+| `schedule` | yes | One entry or a list of them. Each entry has exactly one of: `{"every": "hh:mm:ss"}` (repeat forever, at least a minute apart), `{"daily": "HH:mm"}` (pinned at that time), `{"daily": "auto"}` (an overnight slot the arranger picks; see [below](#overnight-jobs-daily-auto); one per job, not on a `keepRunning` job), `{"atLogon": true}`. A `daily` entry may add `"daysOfWeek": ["Mon", ...]` (`Mon`/`Tue`/`Wed`/`Thu`/`Fri`/`Sat`/`Sun`) to run on only those days instead of every day. |
+| `estimate` | no | How long an `auto` job usually takes (`hh:mm:ss`, more than zero), used by the arranger until the run log has measured runs of it. Default 15 minutes. |
 | `replaces` | no | Tasks this job takes over from, as full paths (`\MindAttic\Launcher\MindAtticLauncherNightlyBackup`) or bare names for root-level tasks. They are removed on install. A task anywhere under `\MindAttic\Scheduler\` (runtime owner subfolders included) is refused. |
 | `workingDirectory` | no | Start-in folder; `%VAR%` expanded. |
 | `description` | no | Shown in Task Scheduler above the "managed by Scheduler" note. |
@@ -63,6 +67,89 @@ this repo's main checkout, e.g. `Lghub.LeakGuard` runs
 [`scripts/restart-lghub-agent.ps1`](scripts/restart-lghub-agent.ps1) hourly to restart Logitech
 G HUB's `lghub_agent` once it leaks past 2 GB (logged to
 `%LOCALAPPDATA%\MindAttic\Scheduler\lghub-agent-restarts.log`).
+
+## Overnight jobs: `"daily": "auto"`
+
+An overnight job with no time of its own says `"schedule": { "daily": "auto" }` (optionally with
+`daysOfWeek`) and the arranger picks its start, so no two overnight jobs start at once and all of
+them are done by 08:00. Any explicit `HH:mm` pins a job: the arranger never moves it, and plans the
+auto jobs around the pinned ones (and around every-N jobs' fire minutes).
+
+- **arrangement.json.** The arranged starts live in
+  `%LOCALAPPDATA%\MindAttic\Scheduler\arrangement.json`, not in jobs.json, so a nightly re-arrange
+  never leaves a diff in the repo:
+
+  ```json
+  {
+    "arrangedAt": "2026-11-19T23:30:04-06:00",
+    "gapMinutes": 5,
+    "fits": true,
+    "slots": {
+      "Azure.BackupNightly": { "start": "00:00", "durationMinutes": 14.2, "source": "measured" }
+    }
+  }
+  ```
+
+  `source` says where the duration came from: `measured` (the run log), `estimate` (the job's
+  `estimate`) or `default` (15 minutes).
+- **install.ps1** registers each auto job's daily trigger at its `slots.<job>.start`. A job with
+  no slot (a new job, or no arrangement.json yet) has the arranger run once
+  (`mindattic-scheduler arrange --no-install`); if it still has none, or the CLI isn't installed,
+  it gets a placeholder (02:00, then 7 minutes apart in manifest order) and a warning. The install
+  never fails over a missing slot. `-ArrangementPath` and `-CliPath` point it elsewhere (the tests
+  do); the arranger is only run when `-ArrangementPath` is the default file, the one the CLI writes.
+- **Scheduler.Arrange**, pinned at 23:30, runs `mindattic-scheduler arrange` nightly: it keeps
+  tonight's slots unless something is wrong (a new or removed auto job, two starts colliding, a
+  predicted finish after 08:00), re-placing them from measured durations, then reruns install.ps1.
+  `arrange --optimize` re-plans from scratch, heaviest first from midnight.
+- **The overnight lock.** Every auto job runs with `--exclusive`: the run wrapper takes the named
+  mutex `Local\MindAttic.Scheduler.Overnight` first, so a job that overruns makes the next one wait
+  (the wait is recorded) instead of piling on top of it. Pinned and every-N jobs don't take it.
+
+## The run wrapper and the run log
+
+Every manifest job except a GUI-subsystem program and a `keepRunning` daemon (Task Scheduler must
+own those processes directly) is registered as
+
+```text
+conhost.exe --headless "<cli>" run <job> [--exclusive] -- <command>
+```
+
+where `<cli>` is `mindattic-scheduler.exe`: `%MINDATTIC_SCHEDULER_CLI%` if set, else
+`C:\Apps\MindAttic.Scheduler\mindattic-scheduler.exe` (published by `release.ps1`). It records a
+`running` row, takes the overnight lock if `--exclusive`, runs the command on the same hidden
+console, records the end time and exit code, and exits with the command's own exit code, so Task
+Scheduler's Last Run Result stays accurate. If the CLI isn't installed, install.ps1 registers the
+plain conhost action instead, with a warning; rerun it once the CLI is published.
+
+Logging never breaks a job: if the database is unreachable, rows go to
+`%LOCALAPPDATA%\MindAttic\Scheduler\spool.jsonl` and the next run that can connect flushes them. A
+row left `running` whose process is gone is marked `abandoned` by the next run or arrange.
+
+**The database** is `MindAttic.Scheduler` (table `JobRun`). The connection is, in order:
+
+1. the `MINDATTIC_SCHEDULER_SQL` environment variable;
+2. `%APPDATA%\MindAttic\MindAttic.Scheduler\database.json`: `{"SqlServer": "<connection string>"}`;
+3. local `(localdb)\MSSQLLocalDB`, `Database=MindAttic.Scheduler`, Windows auth.
+
+### CLI verbs
+
+```text
+mindattic-scheduler run <job> [--exclusive] -- <command line>
+mindattic-scheduler arrange [--optimize] [--dry-run] [--json] [--no-install]
+mindattic-scheduler db migrate
+mindattic-scheduler runs [--job <name>] [--since <date>] [--summary] [--night yyyy-MM-dd] [--json]
+```
+
+- `run`: the run wrapper above.
+- `arrange`: plans the auto jobs and writes arrangement.json, then runs install.ps1.
+  `--optimize` re-plans from scratch; `--dry-run` writes nothing and `--json` prints the plan (the
+  dashboard's Optimize preview uses both); `--no-install` writes arrangement.json but doesn't run
+  install.ps1 (install.ps1 itself uses it, to fill a missing slot without recursing).
+- `db migrate`: applies the run-log schema (idempotent). The only verb that runs DDL.
+- `runs`: reads the run log. `--job` and `--since` filter it, `--summary` gives each job's usual
+  duration and last result, `--night` shows one night's planned slots against what actually ran,
+  `--json` for the dashboard.
 
 ## Jobs made at runtime
 
@@ -80,7 +167,8 @@ scheduler job disable <name> --owner <app>
 ```
 
 - Each job lands at `\MindAttic\Scheduler\<owner>\<name>` and runs exactly like a manifest job:
-  `conhost.exe --headless`, the user's Interactive token, start when available, `IgnoreNew`.
+  `conhost.exe --headless`, the user's Interactive token, start when available, `IgnoreNew`
+  (but not through the run wrapper: runtime jobs aren't in the run log).
   `install.ps1` never touches these owner folders.
 - `--at` is one run at a local time (`yyyy-MM-ddTHH:mm` is safest) and must be in the future;
   the task stays registered after it runs until the owner cancels it. `--every` repeats forever,

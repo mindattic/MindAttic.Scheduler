@@ -157,10 +157,6 @@ function Get-SchedulerJob {
     $tasks = @(Get-ScheduledTask -TaskPath $folder -ErrorAction SilentlyContinue | Where-Object { $_.TaskPath -ieq $folder })
     foreach ($t in $tasks) {
         $info = Get-ScheduledTaskInfo -TaskPath $folder -TaskName $t.TaskName -ErrorAction SilentlyContinue
-        $arguments = [string]$t.Actions[0].Arguments
-        # A GUI program is run directly (New-JobAction); quote it back if its path has spaces.
-        $execute = [string]$t.Actions[0].Execute
-        if ($execute -match '\s' -and $execute -notmatch '^"') { $execute = "`"$execute`"" }
         $nextRun = if ($info -and $info.NextRunTime) { $info.NextRunTime.ToString('s') } else { $null }
         $lastRun = if ($info -and $info.LastRunTime -and $info.LastRunTime.Year -gt 2000) { $info.LastRunTime.ToString('s') } else { $null }
         [pscustomobject]@{
@@ -170,7 +166,7 @@ function Get-SchedulerJob {
             state   = [string]$t.State
             nextRun = $nextRun
             lastRun = $lastRun
-            command = if ($arguments.StartsWith('--headless ')) { $arguments.Substring(11) } else { "$execute $arguments".Trim() }
+            command = ConvertFrom-ActionCommand ([string]$t.Actions[0].Execute) ([string]$t.Actions[0].Arguments)
         }
     }
 }
@@ -237,10 +233,20 @@ function ConvertTo-IntervalHuman([string]$Hhmmss) {
     "every $Hhmmss"
 }
 
-function ConvertTo-ScheduleHuman($Entries) {
+function ConvertTo-ScheduleHuman($Entries, [string]$JobName, [hashtable]$Slots) {
+    # $Slots (job name -> 'HH:mm', from arrangement.json) shows a "daily": "auto" entry's
+    # arranged start: 'auto (01:15)', or 'auto (not arranged yet)' when it has none.
     $weekdays = @('Mon', 'Tue', 'Wed', 'Thu', 'Fri')
     $parts = foreach ($e in @($Entries)) {
         if ($null -ne $e.every) { ConvertTo-IntervalHuman $e.every }
+        elseif (Test-AutoEntry $e) {
+            $slot = if ($Slots -and $JobName -and $Slots.ContainsKey($JobName)) { $Slots[$JobName] } else { $null }
+            $auto = if ($slot) { "auto ($slot)" } else { 'auto (not arranged yet)' }
+            $days = @($e.daysOfWeek | Where-Object { $_ })
+            if ($days.Count -eq 0) { $auto }
+            elseif (-not (Compare-Object $weekdays $days)) { "weekdays $auto" }
+            else { "$($days -join '/') $auto" }
+        }
         elseif ($null -ne $e.daily) {
             $days = @($e.daysOfWeek | Where-Object { $_ })
             if ($days.Count -eq 0) { "daily at $($e.daily)" }
@@ -254,7 +260,20 @@ function ConvertTo-ScheduleHuman($Entries) {
     $parts -join ', '
 }
 
-function ConvertTo-JobStatus($Task, [string]$Folder, [string]$Source, [string]$Owner, $ManifestJob) {
+function ConvertFrom-ActionCommand([string]$Execute, [string]$Arguments) {
+    # A task's action back to the job's own command line: conhost's '--headless ' and the run
+    # wrapper's '"<cli>" run <job> [--exclusive] -- ' (install.ps1, M.SCHD-T42) are dropped.
+    if ($Arguments.StartsWith('--headless ')) {
+        $rest = $Arguments.Substring(11)
+        if ($rest -match '^"[^"]*mindattic-scheduler\.exe"\s+run\s+(?:"[^"]*"|\S+)(?:\s+--exclusive)?\s+--\s+(.*)$') { return $Matches[1] }
+        return $rest
+    }
+    # A GUI program is run directly (New-JobAction); quote it back if its path has spaces.
+    if ($Execute -match '\s' -and $Execute -notmatch '^"') { $Execute = "`"$Execute`"" }
+    "$Execute $Arguments".Trim()
+}
+
+function ConvertTo-JobStatus($Task, [string]$Folder, [string]$Source, [string]$Owner, $ManifestJob, [hashtable]$Slots) {
     $info = Get-ScheduledTaskInfo -TaskPath $Folder -TaskName $Task.TaskName -ErrorAction SilentlyContinue
     $nextRun = if ($info -and $info.NextRunTime) { $info.NextRunTime.ToString('s') } else { $null }
     $lastRun = if ($info -and $info.LastRunTime -and $info.LastRunTime.Year -gt 2000) { $info.LastRunTime.ToString('s') } else { $null }
@@ -264,12 +283,7 @@ function ConvertTo-JobStatus($Task, [string]$Folder, [string]$Source, [string]$O
     $description = if ($ManifestJob) { $ManifestJob.Description }
     else { (([string]$Task.Description) -split [regex]::Escape($script:RuntimeMarker))[0].Trim() }
     $command = if ($ManifestJob) { $ManifestJob.Command }
-    else {
-        $arguments = [string]$Task.Actions[0].Arguments
-        $execute = [string]$Task.Actions[0].Execute
-        if ($execute -match '\s' -and $execute -notmatch '^"') { $execute = "`"$execute`"" }
-        if ($arguments.StartsWith('--headless ')) { $arguments.Substring(11) } else { "$execute $arguments".Trim() }
-    }
+    else { ConvertFrom-ActionCommand ([string]$Task.Actions[0].Execute) ([string]$Task.Actions[0].Arguments) }
     [pscustomobject]@{
         name          = $Task.TaskName
         source        = $Source
@@ -277,7 +291,7 @@ function ConvertTo-JobStatus($Task, [string]$Folder, [string]$Source, [string]$O
         task          = "$Folder$($Task.TaskName)"
         description   = $description
         scheduleRaw   = $scheduleRaw
-        scheduleHuman = ConvertTo-ScheduleHuman $scheduleRaw
+        scheduleHuman = ConvertTo-ScheduleHuman $scheduleRaw $Task.TaskName $Slots
         enabled       = [bool]$Task.Settings.Enabled
         state         = [string]$Task.State
         nextRun       = $nextRun
@@ -290,10 +304,13 @@ function Get-AllSchedulerJobs {
     # Every job under $Root, manifest and runtime alike, in one shape: what the Scheduler jobs
     # dashboard (M.SCHD-T38) and the future Azure mirror push both read.
     [CmdletBinding()]
-    param([string]$Root = $script:JobRoot, [string]$Manifest)
+    param([string]$Root = $script:JobRoot, [string]$Manifest, [string]$ArrangementPath)
 
     $folder = ConvertTo-TaskFolder $Root
     if (-not $Manifest) { $Manifest = Join-Path $PSScriptRoot 'jobs.json' }
+    # "daily": "auto" jobs show their arranged slot (M.SCHD-T42); scheduleRaw keeps "auto" itself.
+    if (-not $ArrangementPath) { $ArrangementPath = Get-DefaultArrangementPath }
+    $slots = Read-Arrangement $ArrangementPath
     $manifestJobs = @{}
     if (Test-Path -LiteralPath $Manifest) {
         # No @() around this call: Read-JobManifest's own trailing ", $jobs" already makes it
@@ -306,7 +323,7 @@ function Get-AllSchedulerJobs {
 
     $rootTasks = @(Get-ScheduledTask -TaskPath $folder -ErrorAction SilentlyContinue | Where-Object { $_.TaskPath -ieq $folder })
     foreach ($t in $rootTasks) {
-        $results += ConvertTo-JobStatus -Task $t -Folder $folder -Source 'manifest' -Owner $null -ManifestJob $manifestJobs[$t.TaskName]
+        $results += ConvertTo-JobStatus -Task $t -Folder $folder -Source 'manifest' -Owner $null -ManifestJob $manifestJobs[$t.TaskName] -Slots $slots
     }
 
     foreach ($owner in Get-OwnerNames $folder) {

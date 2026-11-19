@@ -10,7 +10,10 @@ public sealed class ScheduleEntry
     /// <summary>A repeat interval, "hh:mm:ss".</summary>
     public string? Every { get; set; }
 
-    /// <summary>A fixed daily (or, with <see cref="DaysOfWeek"/>, weekly) time, "HH:mm".</summary>
+    /// <summary>
+    /// A fixed daily (or, with <see cref="DaysOfWeek"/>, weekly) time, "HH:mm" (pinned), or "auto":
+    /// an overnight slot the arranger picks (M.SCHD-T42, see <see cref="ManifestJob.Auto"/>).
+    /// </summary>
     public string? Daily { get; set; }
 
     /// <summary>With <see cref="Daily"/>: only these days ("Mon".."Sun"), instead of every day.</summary>

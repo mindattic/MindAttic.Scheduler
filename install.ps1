@@ -15,6 +15,15 @@
        hand it off and exit at once, so it is started directly and the task tracks the real process.
        A 'keepRunning' job (a daemon) has no time limit, is restarted if it fails, and is started
        on install if it isn't already running.
+       Every other job (a 'tracked' job) runs through the run wrapper instead:
+       'conhost.exe --headless "<cli>" run <job> [--exclusive] -- <command>', which records the
+       run in the run log and returns the command's own exit code (M.SCHD-T42). '--exclusive'
+       (the one-at-a-time overnight lock) is added for "daily": "auto" jobs only. If the CLI isn't
+       installed, the job keeps the plain conhost action and a warning says so.
+       A "daily": "auto" entry starts at the job's arranged slot in arrangement.json. A job with
+       no slot there has the arranger run once ('<cli> arrange --no-install'); if it still has
+       none (or there's no CLI), it gets a placeholder slot (02:00, then 7 minutes apart in
+       manifest order) and a warning, never a failed install.
     3. Any task left directly in \MindAttic\Scheduler\ that the manifest no longer lists is
        unregistered. Subfolders (\MindAttic\Scheduler\<owner>\, used by runtime jobs) are left
        alone.
@@ -28,6 +37,15 @@
   The Task Scheduler folder the jobs live in. Leave it at the default; the tests point it at a
   scratch folder.
 
+.PARAMETER ArrangementPath
+  The arranged overnight slots. Defaults to %LOCALAPPDATA%\MindAttic\Scheduler\arrangement.json;
+  the tests point it at a scratch file. The arranger is only run to fill a missing slot when this
+  is the default path (the CLI always writes the default one).
+
+.PARAMETER CliPath
+  mindattic-scheduler.exe, the run wrapper and arranger. Defaults to %MINDATTIC_SCHEDULER_CLI%,
+  else C:\Apps\MindAttic.Scheduler\mindattic-scheduler.exe.
+
 .EXAMPLE
   .\install.ps1 -WhatIf     # show what would change, touch nothing
   .\install.ps1             # apply
@@ -35,12 +53,28 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [string]$Manifest,
-    [string]$TaskPath = '\MindAttic\Scheduler\'
+    [string]$TaskPath = '\MindAttic\Scheduler\',
+    [string]$ArrangementPath,
+    [string]$CliPath
 )
 
 $ErrorActionPreference = 'Stop'
 
 $script:ManagedMarker = 'Managed by MindAttic.Scheduler (jobs.json). Edit the manifest and rerun install.ps1; do not edit this task by hand.'
+
+function Get-DefaultArrangementPath {
+    Join-Path $env:LOCALAPPDATA 'MindAttic\Scheduler\arrangement.json'
+}
+
+function Get-DefaultCliPath {
+    if ($env:MINDATTIC_SCHEDULER_CLI) { $env:MINDATTIC_SCHEDULER_CLI }
+    else { 'C:\Apps\MindAttic.Scheduler\mindattic-scheduler.exe' }
+}
+
+function Test-AutoEntry($Entry) {
+    # {"daily": "auto"}: an arranged overnight slot (M.SCHD-T42). Any HH:mm is pinned.
+    $Entry.daily -is [string] -and $Entry.daily -ieq 'auto'
+}
 
 function ConvertTo-TaskFolder([string]$Path) {
     # Task Scheduler folders are written '\A\B\': leading and trailing backslash.
@@ -96,8 +130,8 @@ function Test-ScheduleEntry($Entry, [string]$Job) {
             if ($null -ne $Entry.daysOfWeek) { throw "Job '$Job': daysOfWeek only applies to a daily schedule entry." }
         }
         'daily' {
-            if ($Entry.daily -notmatch '^([01]\d|2[0-3]):[0-5]\d$') {
-                throw "Job '$Job': daily '$($Entry.daily)' must be a 24-hour HH:mm time."
+            if (-not (Test-AutoEntry $Entry) -and $Entry.daily -notmatch '^([01]\d|2[0-3]):[0-5]\d$') {
+                throw "Job '$Job': daily '$($Entry.daily)' must be a 24-hour HH:mm time or ""auto""."
             }
             if ($null -ne $Entry.daysOfWeek) {
                 $days = @($Entry.daysOfWeek | Where-Object { $_ })
@@ -138,6 +172,16 @@ function Read-JobManifest([string]$Path, [string]$TaskPath = '\MindAttic\Schedul
         $schedule = @($j.schedule | Where-Object { $null -ne $_ })
         if ($schedule.Count -eq 0) { throw "Job '$name' has no schedule." }
         foreach ($entry in $schedule) { Test-ScheduleEntry $entry $name }
+        # One arranged slot per job: arrangement.json holds a single start for it.
+        $autoCount = @($schedule | Where-Object { Test-AutoEntry $_ }).Count
+        if ($autoCount -gt 1) { throw "Job '$name': only one schedule entry can be ""daily"": ""auto""." }
+        $isAuto = $autoCount -eq 1
+
+        $estimate = $null
+        if ($null -ne $j.estimate) {
+            $estimate = ConvertTo-Span ([string]$j.estimate) "Job '$name': estimate"
+            if ($estimate -le [TimeSpan]::Zero) { throw "Job '$name': estimate must be longer than 00:00:00." }
+        }
 
         $replaces = @()
         foreach ($r in @($j.replaces | Where-Object { $_ })) {
@@ -158,6 +202,9 @@ function Read-JobManifest([string]$Path, [string]$TaskPath = '\MindAttic\Schedul
         if ($keepRunning -and $timeLimit -ne [TimeSpan]::Zero) {
             throw "Job '$name': a keepRunning job can't have a timeLimit; it runs until it exits."
         }
+        if ($keepRunning -and $isAuto) {
+            throw "Job '$name': a keepRunning job can't be ""daily"": ""auto""; the arranger only places jobs that finish."
+        }
 
         if ($null -ne $j.enabled -and $j.enabled -isnot [bool]) { throw "Job '$name': enabled must be true or false." }
         $enabled = $j.enabled -ne $false
@@ -172,6 +219,8 @@ function Read-JobManifest([string]$Path, [string]$TaskPath = '\MindAttic\Schedul
             TimeLimit        = $timeLimit
             KeepRunning      = $keepRunning
             Enabled          = $enabled
+            IsAuto           = $isAuto
+            Estimate         = $estimate
         }
     }
     , $jobs
@@ -179,7 +228,81 @@ function Read-JobManifest([string]$Path, [string]$TaskPath = '\MindAttic\Schedul
 
 function Get-CurrentUserId { "$env:USERDOMAIN\$env:USERNAME" }
 
-function New-JobTriggers($Job) {
+function Read-Arrangement([string]$Path) {
+    # arrangement.json's slots as job name -> 'HH:mm'. A missing or unreadable file, or a slot
+    # whose start isn't HH:mm, is simply absent (the caller falls back); this never throws.
+    $slots = @{}
+    if (-not $Path -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $slots }
+    try {
+        $doc = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($null -eq $doc -or $null -eq $doc.slots) { return $slots }
+        foreach ($p in $doc.slots.PSObject.Properties) {
+            $start = [string]$p.Value.start
+            if ($start -match '^([01]\d|2[0-3]):[0-5]\d$') { $slots[$p.Name] = $start }
+        }
+    }
+    catch { Write-Warning "Could not read ${Path}: $($_.Exception.Message)" }
+    $slots
+}
+
+function Resolve-AutoSlots {
+    # The start ('HH:mm') of every "daily": "auto" job in $Jobs, as a hashtable. A job with no
+    # slot in arrangement.json has the arranger run once to place it ('<cli> arrange
+    # --no-install', which writes arrangement.json without calling install.ps1 back); one still
+    # without a slot gets a placeholder (02:00, then 7 minutes apart in manifest order) and a
+    # warning. Never throws: a missing slot must not fail the install.
+    [CmdletBinding()]
+    param($Jobs, [string]$ArrangementPath, [string]$CliPath, [switch]$NoArrange)
+
+    if (-not $ArrangementPath) { $ArrangementPath = Get-DefaultArrangementPath }
+    if (-not $CliPath) { $CliPath = Get-DefaultCliPath }
+    $result = @{}
+    $auto = @($Jobs | Where-Object { $null -ne $_ -and $_.IsAuto -eq $true })
+    if ($auto.Count -eq 0) { return $result }
+
+    $slots = Read-Arrangement $ArrangementPath
+    $missing = @($auto | Where-Object { -not $slots.ContainsKey($_.Name) })
+
+    # The CLI always writes the default arrangement.json (from the repo's jobs.json), so it is
+    # only run when that is the file being read here; a test's scratch file is never touched.
+    $isDefault = $false
+    try {
+        $isDefault = [string]::Equals([IO.Path]::GetFullPath($ArrangementPath),
+            [IO.Path]::GetFullPath((Get-DefaultArrangementPath)), [StringComparison]::OrdinalIgnoreCase)
+    }
+    catch { }
+    if ($missing.Count -gt 0 -and -not $NoArrange -and $isDefault -and (Test-Path -LiteralPath $CliPath -PathType Leaf)) {
+        Write-Verbose "No arranged slot yet for $(($missing | ForEach-Object Name) -join ', '); running $CliPath arrange --no-install."
+        try {
+            # Continue: under Stop, Windows PowerShell turns the CLI's first stderr line into a
+            # terminating error and cuts the arrange short.
+            $ErrorActionPreference = 'Continue'
+            & $CliPath arrange --no-install 2>&1 | ForEach-Object { Write-Verbose "arrange: $_" }
+            if ($LASTEXITCODE -ne 0) { Write-Warning "$CliPath arrange --no-install exited $LASTEXITCODE." }
+        }
+        catch { Write-Warning "$CliPath arrange --no-install failed: $($_.Exception.Message)" }
+        $slots = Read-Arrangement $ArrangementPath
+    }
+
+    $i = 0
+    foreach ($job in $auto) {
+        if ($slots.ContainsKey($job.Name)) { $result[$job.Name] = $slots[$job.Name]; continue }
+        $placeholder = [datetime]::Today.AddHours(2).AddMinutes(7 * $i).ToString('HH:mm')
+        $i++
+        Write-Warning "Job '$($job.Name)' is ""daily"": ""auto"" but has no arranged slot in $ArrangementPath; using a placeholder $placeholder until 'mindattic-scheduler arrange' places it."
+        $result[$job.Name] = $placeholder
+    }
+    $result
+}
+
+function New-JobTriggers {
+    # $Slots (job name -> 'HH:mm', from Resolve-AutoSlots) gives a "daily": "auto" entry its
+    # start. Without one for this job, its slot is resolved here from $ArrangementPath.
+    param($Job, [hashtable]$Slots, [string]$ArrangementPath, [string]$CliPath)
+
+    if ($Job.IsAuto -eq $true -and ($null -eq $Slots -or -not $Slots.ContainsKey($Job.Name))) {
+        $Slots = Resolve-AutoSlots -Jobs @($Job) -ArrangementPath $ArrangementPath -CliPath $CliPath
+    }
     foreach ($entry in $Job.Schedule) {
         if ($null -ne $entry.every) {
             # Anchored at today's midnight so a rerun produces the same definition. No
@@ -188,7 +311,8 @@ function New-JobTriggers($Job) {
                 -RepetitionInterval (ConvertTo-Span $entry.every 'every')
         }
         elseif ($null -ne $entry.daily) {
-            $at = [datetime]::ParseExact($entry.daily, 'HH:mm', $null)
+            $time = if (Test-AutoEntry $entry) { $Slots[$Job.Name] } else { $entry.daily }
+            $at = [datetime]::ParseExact($time, 'HH:mm', $null)
             $days = @($entry.daysOfWeek | Where-Object { $_ })
             if ($days.Count -gt 0) {
                 New-ScheduledTaskTrigger -Weekly -At $at -DaysOfWeek (ConvertTo-DaysOfWeek $days $Job.Name)
@@ -244,12 +368,24 @@ function Test-GuiProgram([string]$Path) {
     catch { return $false }
 }
 
-function New-JobAction($Job) {
+$script:CliMissingWarned = @{}
+
+function New-JobAction {
+    [CmdletBinding()]
+    param($Job, [string]$CliPath)
+
     # conhost --headless gives the command a console that is never shown, so a console exe run
     # by an Interactive task neither flashes a window nor takes focus. A GUI-subsystem program
     # gets no console anyway, and conhost would start it and exit at once (leaving the task
     # 'finished' while the program runs untracked), so it is started directly.
     # A bare-name GUI program (pythonw) is resolved through PATH and run directly by full path.
+    #
+    # With -CliPath (install.ps1 passes it for manifest jobs; scheduler.ps1's runtime jobs don't),
+    # a tracked job - a named console job that isn't a keepRunning daemon - runs through the run
+    # wrapper, which records the run and exits with the command's own exit code:
+    #   conhost --headless "<cli>" run <job> [--exclusive] -- <command>
+    # --exclusive (the one-at-a-time overnight lock) is for "daily": "auto" jobs only. If the CLI
+    # isn't installed the job keeps the plain conhost action, with one warning per install.
     $parts = Split-CommandLine $Job.Command
     $program = Resolve-JobProgram $parts.Program
     if (Test-GuiProgram $program) {
@@ -259,6 +395,16 @@ function New-JobAction($Job) {
     else {
         $execute = Join-Path $env:SystemRoot 'System32\conhost.exe'
         $argument = '--headless ' + $Job.Command
+        $tracked = $CliPath -and $Job.Name -and $Job.KeepRunning -ne $true
+        if ($tracked -and (Test-Path -LiteralPath $CliPath -PathType Leaf)) {
+            $name = if ($Job.Name -match '\s') { "`"$($Job.Name)`"" } else { $Job.Name }
+            $exclusive = if ($Job.IsAuto -eq $true) { ' --exclusive' } else { '' }
+            $argument = "--headless `"$CliPath`" run $name$exclusive -- $($Job.Command)"
+        }
+        elseif ($tracked -and -not $script:CliMissingWarned.ContainsKey($CliPath)) {
+            $script:CliMissingWarned[$CliPath] = $true
+            Write-Warning "The run wrapper $CliPath isn't installed, so jobs run unwrapped (no run log, no overnight lock). Publish it (release.ps1) and rerun install.ps1."
+        }
     }
     $a = @{ Execute = $execute }
     if ($argument) { $a.Argument = $argument }
@@ -285,11 +431,18 @@ function Remove-EmptyTaskFolder([string]$Folder) {
 
 function Install-SchedulerJobs {
     [CmdletBinding(SupportsShouldProcess)]
-    param([string]$Manifest, [string]$TaskPath)
+    param([string]$Manifest, [string]$TaskPath, [string]$ArrangementPath, [string]$CliPath)
 
+    if (-not $ArrangementPath) { $ArrangementPath = Get-DefaultArrangementPath }
+    if (-not $CliPath) { $CliPath = Get-DefaultCliPath }
     $folder = ConvertTo-TaskFolder $TaskPath
     $jobs = Read-JobManifest $Manifest $folder
     Write-Output "Scheduler: $($jobs.Count) job(s) from $Manifest -> $folder"
+    $script:CliMissingWarned = @{}
+
+    # The arranged starts of the "daily": "auto" jobs. Under -WhatIf the arranger isn't run (it
+    # writes arrangement.json); a job with no slot shows its placeholder instead.
+    $slots = Resolve-AutoSlots -Jobs $jobs -ArrangementPath $ArrangementPath -CliPath $CliPath -NoArrange:$WhatIfPreference
 
     # 1. Retire the old copies each job replaces.
     foreach ($job in $jobs) {
@@ -319,9 +472,10 @@ function Install-SchedulerJobs {
             -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit $job.TimeLimit @settingsArgs
         $description = if ($job.Description) { "$($job.Description)`n`n$script:ManagedMarker" } else { $script:ManagedMarker }
         Register-ScheduledTask -TaskPath $folder -TaskName $job.Name `
-            -Action (New-JobAction $job) -Trigger @(New-JobTriggers $job) `
+            -Action (New-JobAction $job -CliPath $CliPath) -Trigger @(New-JobTriggers -Job $job -Slots $slots) `
             -Principal $principal -Settings $settings -Description $description -Force | Out-Null
-        Write-Output "  registered $folder$($job.Name)"
+        $note = if ($job.IsAuto) { " (auto, $($slots[$job.Name]))" } else { '' }
+        Write-Output "  registered $folder$($job.Name)$note"
 
         # Enabled is part of the manifest, not left at the registration default: a job the
         # manifest (or the dashboard, via the manifest) says is disabled must stay disabled
@@ -364,4 +518,4 @@ if ($MyInvocation.InvocationName -eq '.') { return }
 
 if (-not $Manifest) { $Manifest = Join-Path $PSScriptRoot 'jobs.json' }
 
-Install-SchedulerJobs -Manifest $Manifest -TaskPath $TaskPath
+Install-SchedulerJobs -Manifest $Manifest -TaskPath $TaskPath -ArrangementPath $ArrangementPath -CliPath $CliPath

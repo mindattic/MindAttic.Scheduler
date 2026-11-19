@@ -1,0 +1,45 @@
+<Window x:Class="MindAttic.Scheduler.Wpf.LastNightWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="clr-namespace:MindAttic.Components.Wpf.Controls;assembly=MindAttic.Components.Wpf"
+        Title="Last night" Width="820" Height="480"
+        WindowStartupLocation="CenterOwner">
+    <DockPanel>
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem>
+                <TextBlock Text="{Binding Status}" />
+            </StatusBarItem>
+        </StatusBar>
+
+        <ToolBarTray DockPanel.Dock="Top">
+            <ToolBar>
+                <ctl:MaButton Content="◀ Previous night" Command="{Binding PreviousCommand}" Margin="0,0,4,0" />
+                <ctl:MaButton Content="Next night ▶" Command="{Binding NextCommand}" Margin="0,0,4,0" />
+                <ctl:MaButton Content="Refresh" Command="{Binding RefreshCommand}" />
+                <TextBlock Text="{Binding NightText}" VerticalAlignment="Center" Margin="12,0,0,0" FontWeight="SemiBold" />
+            </ToolBar>
+        </ToolBarTray>
+
+        <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True"
+                  CanUserAddRows="False" CanUserDeleteRows="False" GridLinesVisibility="Horizontal">
+            <!-- Missed, failed, abandoned or overran: the rows that say the night didn't all work. -->
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsProblem}" Value="True">
+                            <Setter Property="Foreground" Value="Red" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Job" Binding="{Binding Name}" Width="*" />
+                <DataGridTextColumn Header="Planned" Binding="{Binding Planned}" Width="70" />
+                <DataGridTextColumn Header="Actual start" Binding="{Binding ActualStart}" Width="110" />
+                <DataGridTextColumn Header="Actual end" Binding="{Binding ActualEnd}" Width="110" />
+                <DataGridTextColumn Header="Lock wait" Binding="{Binding LockWait}" Width="80" />
+                <DataGridTextColumn Header="Outcome" Binding="{Binding Outcome}" Width="190" />
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

@@ -48,6 +48,36 @@ Describe 'ConvertTo-FireTime' {
     }
 }
 
+Describe 'ConvertTo-ScheduleHuman for arranged jobs (M.SCHD-T42)' {
+    It 'shows an auto entry''s arranged slot' {
+        ConvertTo-ScheduleHuman @([pscustomobject]@{ daily = 'auto' }) 'Backup' @{ Backup = '01:15' } | Should -Be 'auto (01:15)'
+    }
+    It 'says when an auto entry has no slot yet' {
+        ConvertTo-ScheduleHuman @([pscustomobject]@{ daily = 'auto' }) 'Backup' @{ Other = '01:15' } | Should -Be 'auto (not arranged yet)'
+        ConvertTo-ScheduleHuman @([pscustomobject]@{ daily = 'Auto' }) 'Backup' $null | Should -Be 'auto (not arranged yet)'
+    }
+    It 'keeps daysOfWeek on an auto entry' {
+        ConvertTo-ScheduleHuman @([pscustomobject]@{ daily = 'auto'; daysOfWeek = @('Mon', 'Tue', 'Wed', 'Thu', 'Fri') }) 'A' @{ A = '02:00' } | Should -Be 'weekdays auto (02:00)'
+        ConvertTo-ScheduleHuman @([pscustomobject]@{ daily = 'auto'; daysOfWeek = @('Sat', 'Sun') }) 'A' @{ A = '02:00' } | Should -Be 'Sat/Sun auto (02:00)'
+    }
+    It 'leaves a pinned time as it was' {
+        ConvertTo-ScheduleHuman @([pscustomobject]@{ daily = '23:30' }) 'A' @{ A = '02:00' } | Should -Be 'daily at 23:30'
+    }
+}
+
+Describe 'ConvertFrom-ActionCommand' {
+    It 'drops conhost''s --headless' {
+        ConvertFrom-ActionCommand 'C:\Windows\System32\conhost.exe' '--headless cmd.exe /c exit 0' | Should -Be 'cmd.exe /c exit 0'
+    }
+    It 'drops the run wrapper, with or without --exclusive and a quoted name' {
+        ConvertFrom-ActionCommand 'conhost.exe' '--headless "C:\Apps\MindAttic.Scheduler\mindattic-scheduler.exe" run Backup --exclusive -- "C:\x y\b.exe" --keep 3' | Should -Be '"C:\x y\b.exe" --keep 3'
+        ConvertFrom-ActionCommand 'conhost.exe' '--headless "C:\Apps\MindAttic.Scheduler\mindattic-scheduler.exe" run "Two Words" -- cmd.exe /c exit 0' | Should -Be 'cmd.exe /c exit 0'
+    }
+    It 'quotes a directly-started GUI program with a space in its path' {
+        ConvertFrom-ActionCommand 'C:\A B\x.exe' '--daemon' | Should -Be '"C:\A B\x.exe" --daemon'
+    }
+}
+
 Describe 'scheduler job against the real Task Scheduler' {
     BeforeAll {
         $script:Root = '\MindAttic\Scheduler\Tests\'
@@ -198,6 +228,27 @@ Describe 'scheduler job status/enable/disable against the real Task Scheduler' {
         $ping.owner | Should -Be $script:StatusOwner
         $ping.scheduleHuman | Should -Be 'every 10 minutes'
         $ping.enabled | Should -BeTrue
+    }
+
+    It 'reports an auto job with "daily": "auto" in scheduleRaw and its arranged slot in scheduleHuman' {
+        Register-ScheduledTask -TaskPath $script:StatusRoot -TaskName 'Arranged' `
+            -Action (New-ScheduledTaskAction -Execute 'cmd.exe' -Argument '/c exit 0') `
+            -Trigger (New-ScheduledTaskTrigger -Daily -At ([datetime]'01:15')) | Out-Null
+        $manifest = Write-Manifest @(@{ name = 'Arranged'; command = 'cmd.exe /c exit 0'; schedule = @{ daily = 'auto' } })
+        $arrangement = Join-Path $script:StatusScratch 'arrangement.json'
+        '{"arrangedAt":"2026-11-19T23:30:00-06:00","gapMinutes":5,"fits":true,"slots":{"Arranged":{"start":"01:15","durationMinutes":20,"source":"measured"}}}' |
+            Set-Content -LiteralPath $arrangement -Encoding UTF8
+        try {
+            $jobs = Get-AllSchedulerJobs -Root $script:StatusRoot -Manifest $manifest -ArrangementPath $arrangement
+            $arranged = $jobs | Where-Object name -eq 'Arranged'
+            $arranged.scheduleHuman | Should -Be 'auto (01:15)'
+            @($arranged.scheduleRaw)[0].daily | Should -Be 'auto'
+            (ConvertTo-Json -InputObject $jobs -Depth 6 -Compress) | Should -Match '"scheduleRaw":\[\{"daily":"auto"\}\]'
+
+            $none = Get-AllSchedulerJobs -Root $script:StatusRoot -Manifest $manifest -ArrangementPath (Join-Path $script:StatusScratch 'none.json')
+            ($none | Where-Object name -eq 'Arranged').scheduleHuman | Should -Be 'auto (not arranged yet)'
+        }
+        finally { Unregister-ScheduledTask -TaskPath $script:StatusRoot -TaskName 'Arranged' -Confirm:$false -ErrorAction SilentlyContinue }
     }
 
     It 'disables and re-enables a runtime job, and refuses an unknown one' {
