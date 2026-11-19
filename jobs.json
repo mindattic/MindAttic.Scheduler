@@ -127,8 +127,8 @@
     },
     {
       "name": "Azure.BackupNightly",
-      "description": "Azure SQL backup, nightly tier (MAT-T147, docs/ops/azure-migration/BACKUP.md): a full export (bacpac) of every always-on DTU database (IdiotProof, ClaudeActivity, MindAttic.Tickets, MindAttic.Orchestrator and any other Basic/Standard database on the server) to R:\\Backup\\MindAttic\\azure and to blob db-backups/bacpac, each checked offline, keeping the newest 14 plus 8 weekly plus 12 monthly per database on both sides. Logs: R:\\Backup\\MindAttic\\azure\\logs.",
-      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\docs\\ops\\azure-migration\\Backup-Scheduled.ps1\" -Tier AlwaysOn -KeepNewest 14 -KeepWeekly 8 -KeepMonthly 12",
+      "description": "Azure SQL backup, nightly tier (MAT-T147, docs/ops/azure-migration/BACKUP.md): a full export (bacpac) of every always-on DTU database (IdiotProof, ClaudeActivity, MindAttic.Tickets, MindAttic.Orchestrator and any other Basic/Standard database on the server) to R:\\Backup\\MindAttic\\azure, to blob db-backups/bacpac and, off Azure, to the mindattic.com hosting account over FTPS (/Backups/azure, MAT-T156), each checked offline. Retention on all three: 30 days rolling, never fewer than the newest 2 per database. An FTP failure does not fail the backup (exit code 2, reported in the log). Logs: R:\\Backup\\MindAttic\\azure\\logs.",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\docs\\ops\\azure-migration\\Backup-Scheduled.ps1\" -Tier AlwaysOn -KeepDays 30 -KeepMinimum 2",
       "workingDirectory": "D:\\Projects\\MindAttic\\docs\\ops\\azure-migration",
       "schedule": { "daily": "01:15" },
       "timeLimit": "02:00:00"
@@ -143,11 +143,19 @@
     },
     {
       "name": "Azure.BackupWeekly",
-      "description": "Azure SQL backup, weekly and large tiers (MAT-T147, docs/ops/azure-migration/BACKUP.md). Runs every night but exports a free-offer serverless database at most once every 7 days (the four over 2 GB - Prose, IdiotProof_History, IdiotProof_Research_GAP, IdiotProof_Research_T375 - every 28 days), and never one that is paused and unchanged since its last export, so paused databases are not woken and the 100,000 vCore-second monthly allowance is kept for real work. Same destinations and offline check as Azure.BackupNightly; keeps the newest 4 plus 8 weekly plus 12 monthly per database. Logs: R:\\Backup\\MindAttic\\azure\\logs.",
-      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\docs\\ops\\azure-migration\\Backup-Scheduled.ps1\" -Tier Serverless,Large -ServerlessEveryDays 7 -LargeEveryDays 28 -KeepNewest 4 -KeepWeekly 8 -KeepMonthly 12",
+      "description": "Azure SQL backup, weekly and large tiers (MAT-T147, docs/ops/azure-migration/BACKUP.md). Runs every night but exports a free-offer serverless database at most once every 7 days (the four over 2 GB - Prose, IdiotProof_History, IdiotProof_Research_GAP, IdiotProof_Research_T375 - every 28 days), and never one that is paused and unchanged since its last export, so paused databases are not woken and the 100,000 vCore-second monthly allowance is kept for real work. Same three destinations (disk, blob, FTP), offline check and retention as Azure.BackupNightly: 30 days rolling, never fewer than the newest 2 per database (MAT-T156). Logs: R:\\Backup\\MindAttic\\azure\\logs.",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\docs\\ops\\azure-migration\\Backup-Scheduled.ps1\" -Tier Serverless,Large -ServerlessEveryDays 7 -LargeEveryDays 28 -KeepDays 30 -KeepMinimum 2",
       "workingDirectory": "D:\\Projects\\MindAttic\\docs\\ops\\azure-migration",
       "schedule": { "daily": "04:30" },
       "timeLimit": "08:00:00"
+    },
+    {
+      "name": "Azure.RestoreDrill",
+      "description": "Azure SQL restore drill, monthly (MAT-T156, docs/ops/azure-migration/BACKUP.md): for every always-on database, downloads its newest export from the off-Azure FTP copy, checks its SHA-256, imports it into a scratch database on LocalDB (the full local SQL Server is not needed), checks the restored row total against the package and compares every table with the live database, then drops the scratch. The Scheduler has no monthly trigger, so it starts every Sunday at 06:30 and the script skips a database drilled less than 28 days ago. Serverless databases are not drilled here (a comparison would wake them); run Test-BackupRestore.ps1 by hand for those. Logs: R:\\Backup\\MindAttic\\azure\\logs\\restore-drill-*.log.",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\docs\\ops\\azure-migration\\Test-BackupRestore.ps1\" -AlwaysOn -From Ftp -EveryDays 28",
+      "workingDirectory": "D:\\Projects\\MindAttic\\docs\\ops\\azure-migration",
+      "schedule": { "daily": "06:30", "daysOfWeek": ["Sun"] },
+      "timeLimit": "02:00:00"
     }
   ]
 }
