@@ -127,10 +127,10 @@
     },
     {
       "name": "Prose.WikiSync",
-      "description": "Keeps the GLMZ wiki (mindattic.com/glmz) up to date with the Prose database, nightly at 03:30 (M.SCHD-T40): Prose tools/wiki/sync-wiki.ps1 exports the GLMZ repos, entities, relationships and books through the Prose Hub (starting it if it is down) and pushes only the pages that changed. A run already in progress makes it exit at once (sync.lock). The last run's log (sync.log) and validation report (out\\repair.md) are in %LOCALAPPDATA%\\MindAttic\\Prose\\wiki\\glmz.",
+      "description": "Keeps the GLMZ wiki (mindattic.com/glmz) up to date with the Prose database, nightly at 00:30 (M.SCHD-T40): Prose tools/wiki/sync-wiki.ps1 exports the GLMZ repos, entities, relationships and books through the Prose Hub (starting it if it is down) and pushes only the pages that changed. A run already in progress makes it exit at once (sync.lock). The last run's log (sync.log) and validation report (out\\repair.md) are in %LOCALAPPDATA%\\MindAttic\\Prose\\wiki\\glmz.",
       "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\Prose\\tools\\wiki\\sync-wiki.ps1\" -Universe glmz",
       "workingDirectory": "D:\\Projects\\MindAttic\\Prose",
-      "schedule": { "daily": "03:30" },
+      "schedule": { "daily": "00:30" },
       "timeLimit": "02:00:00"
     },
     {
