@@ -1,0 +1,13 @@
+D:\Projects\MindAttic\MindAttic.Scheduler\src\MindAttic.Scheduler.Core\bin\Debug\net10.0-windows\MindAttic.Scheduler.Core.deps.json
+D:\Projects\MindAttic\MindAttic.Scheduler\src\MindAttic.Scheduler.Core\bin\Debug\net10.0-windows\MindAttic.Scheduler.Core.dll
+D:\Projects\MindAttic\MindAttic.Scheduler\src\MindAttic.Scheduler.Core\bin\Debug\net10.0-windows\MindAttic.Scheduler.Core.pdb
+D:\Projects\MindAttic\MindAttic.Scheduler\src\MindAttic.Scheduler.Core\obj\Debug\net10.0-windows\MindAttic.Scheduler.Core.csproj.AssemblyReference.cache
+D:\Projects\MindAttic\MindAttic.Scheduler\src\MindAttic.Scheduler.Core\obj\Debug\net10.0-windows\MindAttic.Scheduler.Core.GeneratedMSBuildEditorConfig.editorconfig
+D:\Projects\MindAttic\MindAttic.Scheduler\src\MindAttic.Scheduler.Core\obj\Debug\net10.0-windows\MindAttic.Scheduler.Core.AssemblyInfoInputs.cache
+D:\Projects\MindAttic\MindAttic.Scheduler\src\MindAttic.Scheduler.Core\obj\Debug\net10.0-windows\MindAttic.Scheduler.Core.AssemblyInfo.cs
+D:\Projects\MindAttic\MindAttic.Scheduler\src\MindAttic.Scheduler.Core\obj\Debug\net10.0-windows\MindAttic.Scheduler.Core.csproj.CoreCompileInputs.cache
+D:\Projects\MindAttic\MindAttic.Scheduler\src\MindAttic.Scheduler.Core\obj\Debug\net10.0-windows\MindAttic.Scheduler.Core.sourcelink.json
+D:\Projects\MindAttic\MindAttic.Scheduler\src\MindAttic.Scheduler.Core\obj\Debug\net10.0-windows\MindAttic.Scheduler.Core.dll
+D:\Projects\MindAttic\MindAttic.Scheduler\src\MindAttic.Scheduler.Core\obj\Debug\net10.0-windows\refint\MindAttic.Scheduler.Core.dll
+D:\Projects\MindAttic\MindAttic.Scheduler\src\MindAttic.Scheduler.Core\obj\Debug\net10.0-windows\MindAttic.Scheduler.Core.pdb
+D:\Projects\MindAttic\MindAttic.Scheduler\src\MindAttic.Scheduler.Core\obj\Debug\net10.0-windows\ref\MindAttic.Scheduler.Core.dll

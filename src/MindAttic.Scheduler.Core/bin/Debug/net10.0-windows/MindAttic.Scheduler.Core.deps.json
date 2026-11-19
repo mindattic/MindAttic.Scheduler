@@ -1,0 +1,121 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "MindAttic.Scheduler.Core/1.0.0": {
+        "dependencies": {
+          "CronExpressionDescriptor": "2.37.0"
+        },
+        "runtime": {
+          "MindAttic.Scheduler.Core.dll": {}
+        }
+      },
+      "CronExpressionDescriptor/2.37.0": {
+        "runtime": {
+          "lib/net6.0/CronExpressionDescriptor.dll": {
+            "assemblyVersion": "2.37.0.0",
+            "fileVersion": "2.37.0.0"
+          }
+        },
+        "resources": {
+          "lib/net6.0/cs/CronExpressionDescriptor.resources.dll": {
+            "locale": "cs"
+          },
+          "lib/net6.0/da/CronExpressionDescriptor.resources.dll": {
+            "locale": "da"
+          },
+          "lib/net6.0/de/CronExpressionDescriptor.resources.dll": {
+            "locale": "de"
+          },
+          "lib/net6.0/es-MX/CronExpressionDescriptor.resources.dll": {
+            "locale": "es-MX"
+          },
+          "lib/net6.0/es/CronExpressionDescriptor.resources.dll": {
+            "locale": "es"
+          },
+          "lib/net6.0/fa/CronExpressionDescriptor.resources.dll": {
+            "locale": "fa"
+          },
+          "lib/net6.0/fi/CronExpressionDescriptor.resources.dll": {
+            "locale": "fi"
+          },
+          "lib/net6.0/fr/CronExpressionDescriptor.resources.dll": {
+            "locale": "fr"
+          },
+          "lib/net6.0/he-IL/CronExpressionDescriptor.resources.dll": {
+            "locale": "he-IL"
+          },
+          "lib/net6.0/hu/CronExpressionDescriptor.resources.dll": {
+            "locale": "hu"
+          },
+          "lib/net6.0/it/CronExpressionDescriptor.resources.dll": {
+            "locale": "it"
+          },
+          "lib/net6.0/ja/CronExpressionDescriptor.resources.dll": {
+            "locale": "ja"
+          },
+          "lib/net6.0/ko/CronExpressionDescriptor.resources.dll": {
+            "locale": "ko"
+          },
+          "lib/net6.0/nb/CronExpressionDescriptor.resources.dll": {
+            "locale": "nb"
+          },
+          "lib/net6.0/nl/CronExpressionDescriptor.resources.dll": {
+            "locale": "nl"
+          },
+          "lib/net6.0/pl/CronExpressionDescriptor.resources.dll": {
+            "locale": "pl"
+          },
+          "lib/net6.0/pt/CronExpressionDescriptor.resources.dll": {
+            "locale": "pt"
+          },
+          "lib/net6.0/ro/CronExpressionDescriptor.resources.dll": {
+            "locale": "ro"
+          },
+          "lib/net6.0/ru/CronExpressionDescriptor.resources.dll": {
+            "locale": "ru"
+          },
+          "lib/net6.0/sl/CronExpressionDescriptor.resources.dll": {
+            "locale": "sl"
+          },
+          "lib/net6.0/sv/CronExpressionDescriptor.resources.dll": {
+            "locale": "sv"
+          },
+          "lib/net6.0/tr/CronExpressionDescriptor.resources.dll": {
+            "locale": "tr"
+          },
+          "lib/net6.0/uk/CronExpressionDescriptor.resources.dll": {
+            "locale": "uk"
+          },
+          "lib/net6.0/vi/CronExpressionDescriptor.resources.dll": {
+            "locale": "vi"
+          },
+          "lib/net6.0/zh-Hans/CronExpressionDescriptor.resources.dll": {
+            "locale": "zh-Hans"
+          },
+          "lib/net6.0/zh-Hant/CronExpressionDescriptor.resources.dll": {
+            "locale": "zh-Hant"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "MindAttic.Scheduler.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "CronExpressionDescriptor/2.37.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ir97lO1hzSyxziT+Ys9Xx95HR/3vjDhwc4+QoOIiiqj1toTpLVMOSYt2ajzsYW/xWfykvoJtw5j8svlvwmgWHg==",
+      "path": "cronexpressiondescriptor/2.37.0",
+      "hashPath": "cronexpressiondescriptor.2.37.0.nupkg.sha512"
+    }
+  }
+}

@@ -68,6 +68,22 @@ function ConvertTo-Span([string]$Text, [string]$What) {
     $span
 }
 
+$script:DayOfWeekNames = @{
+    Mon = 'Monday'; Tue = 'Tuesday'; Wed = 'Wednesday'; Thu = 'Thursday'
+    Fri = 'Friday'; Sat = 'Saturday'; Sun = 'Sunday'
+}
+
+function ConvertTo-DaysOfWeek([string[]]$Names, [string]$Job) {
+    # Returned as the full day names (e.g. 'Monday'): New-ScheduledTaskTrigger's -DaysOfWeek
+    # parameter is its own ScheduledTasks module enum, not [DayOfWeek], but binds a string by
+    # name just the same.
+    $Names | ForEach-Object {
+        $full = $script:DayOfWeekNames[$_]
+        if (-not $full) { throw "Job '$Job': daysOfWeek '$_' must be one of Mon, Tue, Wed, Thu, Fri, Sat, Sun." }
+        $full
+    }
+}
+
 function Test-ScheduleEntry($Entry, [string]$Job) {
     $kinds = @('every', 'daily', 'atLogon') | Where-Object { $null -ne $Entry.$_ }
     if (@($kinds).Count -ne 1) {
@@ -77,14 +93,21 @@ function Test-ScheduleEntry($Entry, [string]$Job) {
         'every' {
             $span = ConvertTo-Span $Entry.every "Job '$Job': every"
             if ($span -lt [TimeSpan]::FromMinutes(1)) { throw "Job '$Job': every must be at least 00:01:00." }
+            if ($null -ne $Entry.daysOfWeek) { throw "Job '$Job': daysOfWeek only applies to a daily schedule entry." }
         }
         'daily' {
             if ($Entry.daily -notmatch '^([01]\d|2[0-3]):[0-5]\d$') {
                 throw "Job '$Job': daily '$($Entry.daily)' must be a 24-hour HH:mm time."
             }
+            if ($null -ne $Entry.daysOfWeek) {
+                $days = @($Entry.daysOfWeek | Where-Object { $_ })
+                if ($days.Count -eq 0) { throw "Job '$Job': daysOfWeek, if given, must list at least one day." }
+                ConvertTo-DaysOfWeek $days $Job | Out-Null
+            }
         }
         'atLogon' {
             if ($Entry.atLogon -ne $true) { throw "Job '$Job': atLogon must be true." }
+            if ($null -ne $Entry.daysOfWeek) { throw "Job '$Job': daysOfWeek only applies to a daily schedule entry." }
         }
     }
 }
@@ -136,6 +159,9 @@ function Read-JobManifest([string]$Path, [string]$TaskPath = '\MindAttic\Schedul
             throw "Job '$name': a keepRunning job can't have a timeLimit; it runs until it exits."
         }
 
+        if ($null -ne $j.enabled -and $j.enabled -isnot [bool]) { throw "Job '$name': enabled must be true or false." }
+        $enabled = $j.enabled -ne $false
+
         $jobs += [pscustomobject]@{
             Name             = $name
             Command          = [Environment]::ExpandEnvironmentVariables([string]$j.command)
@@ -145,6 +171,7 @@ function Read-JobManifest([string]$Path, [string]$TaskPath = '\MindAttic\Schedul
             Replaces         = $replaces
             TimeLimit        = $timeLimit
             KeepRunning      = $keepRunning
+            Enabled          = $enabled
         }
     }
     , $jobs
@@ -161,7 +188,14 @@ function New-JobTriggers($Job) {
                 -RepetitionInterval (ConvertTo-Span $entry.every 'every')
         }
         elseif ($null -ne $entry.daily) {
-            New-ScheduledTaskTrigger -Daily -At ([datetime]::ParseExact($entry.daily, 'HH:mm', $null))
+            $at = [datetime]::ParseExact($entry.daily, 'HH:mm', $null)
+            $days = @($entry.daysOfWeek | Where-Object { $_ })
+            if ($days.Count -gt 0) {
+                New-ScheduledTaskTrigger -Weekly -At $at -DaysOfWeek (ConvertTo-DaysOfWeek $days $Job.Name)
+            }
+            else {
+                New-ScheduledTaskTrigger -Daily -At $at
+            }
         }
         else {
             New-ScheduledTaskTrigger -AtLogOn -User (Get-CurrentUserId)
@@ -288,6 +322,15 @@ function Install-SchedulerJobs {
             -Action (New-JobAction $job) -Trigger @(New-JobTriggers $job) `
             -Principal $principal -Settings $settings -Description $description -Force | Out-Null
         Write-Output "  registered $folder$($job.Name)"
+
+        # Enabled is part of the manifest, not left at the registration default: a job the
+        # manifest (or the dashboard, via the manifest) says is disabled must stay disabled
+        # across reinstalls, and one re-enabled in the manifest must come back.
+        if ($job.Enabled) { Enable-ScheduledTask -TaskPath $folder -TaskName $job.Name | Out-Null }
+        else {
+            Disable-ScheduledTask -TaskPath $folder -TaskName $job.Name | Out-Null
+            Write-Output "  disabled $folder$($job.Name)"
+        }
 
         # A daemon shouldn't wait for the next logon, least of all right after its old task was
         # stopped above.

@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "XPuLOPrSpOo=",
+  "success": true,
+  "projectFilePath": "D:\\Projects\\MindAttic\\MindAttic.Scheduler\\src\\MindAttic.Scheduler.Wpf\\MindAttic.Scheduler.Wpf.csproj",
+  "expectedPackageFiles": [
+    "R:\\Temp\\nuget\\packages\\cronexpressiondescriptor\\2.37.0\\cronexpressiondescriptor.2.37.0.nupkg.sha512",
+    "R:\\Temp\\nuget\\packages\\microsoft.web.webview2\\1.0.3179.45\\microsoft.web.webview2.1.0.3179.45.nupkg.sha512",
+    "R:\\Temp\\nuget\\packages\\mindattic.components.wpf\\45.0.0\\mindattic.components.wpf.45.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}

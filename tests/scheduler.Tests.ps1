@@ -136,3 +136,73 @@ Describe 'scheduler job against the real Task Scheduler' {
         finally { Remove-Folder "\MindAttic\Scheduler\$owner\" }
     }
 }
+
+Describe 'scheduler job status/enable/disable against the real Task Scheduler' {
+    BeforeAll {
+        $script:StatusRoot = '\MindAttic\Scheduler\TestsStatus\'
+        $script:StatusOwner = 'StatusOwner'
+        $script:StatusOwnerFolder = "$($script:StatusRoot)$($script:StatusOwner)\"
+        $script:StatusScratch = Join-Path ([IO.Path]::GetTempPath()) ('scheduler-status-tests-' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:StatusScratch | Out-Null
+
+        function Get-Tasks($path) { @(Get-ScheduledTask -TaskPath $path -ErrorAction SilentlyContinue | Where-Object TaskPath -eq $path) }
+        function Remove-Folder($path) {
+            Get-Tasks $path | ForEach-Object { Unregister-ScheduledTask -TaskPath $path -TaskName $_.TaskName -Confirm:$false }
+            try {
+                $svc = New-Object -ComObject Schedule.Service; $svc.Connect()
+                $p = $path.TrimEnd('\'); $svc.GetFolder((Split-Path $p -Parent)).DeleteFolder((Split-Path $p -Leaf), 0)
+            } catch { }
+        }
+        function Write-Manifest([object[]]$Jobs) {
+            $path = Join-Path $script:StatusScratch ([guid]::NewGuid().ToString('N') + '.json')
+            ConvertTo-Json -InputObject @{ jobs = @($Jobs) } -Depth 10 | Set-Content -LiteralPath $path -Encoding UTF8
+            $path
+        }
+        Remove-Folder $script:StatusRoot
+    }
+
+    AfterAll {
+        Remove-Folder $script:StatusRoot
+        Remove-Item -LiteralPath $script:StatusScratch -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'reports a manifest job and a runtime job together, each enabled by default' {
+        # A manifest job: registered the way install.ps1 would, directly at the root (install.ps1
+        # itself is covered by install.Tests.ps1; this is only testing the status read path).
+        Register-ScheduledTask -TaskPath $script:StatusRoot -TaskName 'Nightly' `
+            -Action (New-ScheduledTaskAction -Execute 'cmd.exe' -Argument '/c exit 0') `
+            -Trigger (New-ScheduledTaskTrigger -Daily -At ([datetime]'03:15')) `
+            -Description 'Nightly description' | Out-Null
+        $manifest = Write-Manifest @(@{ name = 'Nightly'; command = 'cmd.exe /c exit 0'; description = 'Nightly description'; schedule = @{ daily = '03:15' } })
+
+        Add-SchedulerJob -Name 'Ping' -Owner $script:StatusOwner -Every '00:10:00' -Command 'cmd.exe /c exit 0' -Root $script:StatusRoot | Out-Null
+
+        $jobs = @(Get-AllSchedulerJobs -Root $script:StatusRoot -Manifest $manifest)
+        ($jobs.name | Sort-Object) -join ',' | Should -Be 'Nightly,Ping'
+
+        $nightly = $jobs | Where-Object name -eq 'Nightly'
+        $nightly.source | Should -Be 'manifest'
+        $nightly.owner | Should -BeNullOrEmpty
+        $nightly.description | Should -Be 'Nightly description'
+        $nightly.scheduleHuman | Should -Be 'daily at 03:15'
+        $nightly.enabled | Should -BeTrue
+
+        $ping = $jobs | Where-Object name -eq 'Ping'
+        $ping.source | Should -Be 'runtime'
+        $ping.owner | Should -Be $script:StatusOwner
+        $ping.scheduleHuman | Should -Be 'every 10 minutes'
+        $ping.enabled | Should -BeTrue
+    }
+
+    It 'disables and re-enables a runtime job, and refuses an unknown one' {
+        Disable-SchedulerJob -Name 'Ping' -Owner $script:StatusOwner -Root $script:StatusRoot | Out-Null
+        (Get-ScheduledTask -TaskPath $script:StatusOwnerFolder -TaskName 'Ping').Settings.Enabled | Should -BeFalse
+        (Get-AllSchedulerJobs -Root $script:StatusRoot | Where-Object name -eq 'Ping').enabled | Should -BeFalse
+
+        Enable-SchedulerJob -Name 'Ping' -Owner $script:StatusOwner -Root $script:StatusRoot | Out-Null
+        (Get-ScheduledTask -TaskPath $script:StatusOwnerFolder -TaskName 'Ping').Settings.Enabled | Should -BeTrue
+
+        { Disable-SchedulerJob -Name 'Nope' -Owner $script:StatusOwner -Root $script:StatusRoot } | Should -Throw '*No job*'
+        { Enable-SchedulerJob -Name 'Nope' -Owner $script:StatusOwner -Root $script:StatusRoot } | Should -Throw '*No job*'
+    }
+}

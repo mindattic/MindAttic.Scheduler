@@ -10,6 +10,9 @@
                       [--workdir <dir>] [--description <text>] [--replaces <task>]...
     scheduler job cancel <name> --owner <app>
     scheduler job list --owner <app> [--json]
+    scheduler job status [--json]
+    scheduler job enable <name> --owner <app>
+    scheduler job disable <name> --owner <app>
 
   Each job is registered at \MindAttic\Scheduler\<owner>\<name>, the same way install.ps1
   registers manifest jobs: run through 'conhost.exe --headless' (no window, no focus stolen),
@@ -25,10 +28,19 @@
   'cancel' unregisters the task without stopping a run already under way, so a job may
   cancel itself as its last step. Exit code 0 on success, 1 on any error (message on stderr).
 
+  'status' lists every job under \MindAttic\Scheduler\, manifest and runtime alike, with its
+  description, schedule (raw and human-readable), enabled state, Task Scheduler state, and last
+  and next run time - the one read the Scheduler jobs dashboard (M.SCHD-T38) uses. 'enable'/
+  'disable' flip a runtime job's live Task Scheduler Enabled bit; a manifest job is toggled by
+  setting its "enabled" field in jobs.json and rerunning install.ps1 instead, so the manifest
+  never drifts from what Task Scheduler actually has.
+
 .EXAMPLE
   scheduler job add 1a2b3c --owner Psst --at 2026-10-19T09:30 --run "cmd.exe /c ""C:\x\1a2b3c.cmd"""
   scheduler job list --owner Psst --json
   scheduler job cancel 1a2b3c --owner Psst
+  scheduler job status --json
+  scheduler job disable 1a2b3c --owner Psst
 #>
 
 # No param block: PowerShell would try to bind '--owner' and friends as its own parameters.
@@ -163,6 +175,169 @@ function Get-SchedulerJob {
     }
 }
 
+function Get-OwnerNames([string]$Folder) {
+    # Immediate subfolders of $Folder, i.e. every owner that has registered a runtime job.
+    try {
+        $svc = New-Object -ComObject 'Schedule.Service'
+        $svc.Connect()
+        $f = $svc.GetFolder($Folder.TrimEnd('\'))
+        @($f.GetFolders(0) | ForEach-Object { $_.Name })
+    }
+    catch { @() }
+}
+
+function ConvertFrom-IsoDuration([string]$Iso) {
+    # Task Scheduler's Repetition.Interval, e.g. 'PT15M', 'PT1H', 'P1D'.
+    if ($Iso -notmatch '^P(?:(?<days>\d+)D)?(?:T(?:(?<hours>\d+)H)?(?:(?<minutes>\d+)M)?(?:(?<seconds>\d+)S)?)?$') {
+        return [TimeSpan]::Zero
+    }
+    New-TimeSpan -Days ([int]$Matches['days']) -Hours ([int]$Matches['hours']) `
+        -Minutes ([int]$Matches['minutes']) -Seconds ([int]$Matches['seconds'])
+}
+
+function ConvertFrom-TaskTriggers($Triggers) {
+    # scheduler.ps1 only ever registers a single, once-only trigger (optionally repeating), so
+    # that is all this needs to recognise for a runtime job; a manifest job's schedule always
+    # comes from jobs.json itself, never from here.
+    $entries = @()
+    foreach ($tr in @($Triggers)) {
+        if ($tr.Repetition -and $tr.Repetition.Interval) {
+            $entries += [pscustomobject]@{ every = (ConvertFrom-IsoDuration $tr.Repetition.Interval).ToString() }
+        }
+        elseif ($tr.StartBoundary) {
+            $entries += [pscustomobject]@{ once = $tr.StartBoundary }
+        }
+    }
+    , $entries
+}
+
+function ConvertTo-IntervalHuman([string]$Hhmmss) {
+    $span = [TimeSpan]::Zero
+    if (-not [TimeSpan]::TryParse($Hhmmss, [ref]$span)) { return "every $Hhmmss" }
+    if ($span.TotalHours -ge 1 -and $span.Minutes -eq 0 -and $span.Seconds -eq 0) {
+        $h = [int]$span.TotalHours
+        return "every $h hour$(if ($h -ne 1) { 's' })"
+    }
+    if ($span.Seconds -eq 0) {
+        $m = [int]$span.TotalMinutes
+        return "every $m minute$(if ($m -ne 1) { 's' })"
+    }
+    "every $Hhmmss"
+}
+
+function ConvertTo-ScheduleHuman($Entries) {
+    $weekdays = @('Mon', 'Tue', 'Wed', 'Thu', 'Fri')
+    $parts = foreach ($e in @($Entries)) {
+        if ($null -ne $e.every) { ConvertTo-IntervalHuman $e.every }
+        elseif ($null -ne $e.daily) {
+            $days = @($e.daysOfWeek | Where-Object { $_ })
+            if ($days.Count -eq 0) { "daily at $($e.daily)" }
+            elseif (-not (Compare-Object $weekdays $days)) { "weekdays at $($e.daily)" }
+            else { "$($days -join '/') at $($e.daily)" }
+        }
+        elseif ($e.atLogon -eq $true) { 'at logon' }
+        elseif ($null -ne $e.once) { "once at $($e.once)" }
+        else { 'unknown schedule' }
+    }
+    $parts -join ', '
+}
+
+function ConvertTo-JobStatus($Task, [string]$Folder, [string]$Source, [string]$Owner, $ManifestJob) {
+    $info = Get-ScheduledTaskInfo -TaskPath $Folder -TaskName $Task.TaskName -ErrorAction SilentlyContinue
+    $nextRun = if ($info -and $info.NextRunTime) { $info.NextRunTime.ToString('s') } else { $null }
+    $lastRun = if ($info -and $info.LastRunTime -and $info.LastRunTime.Year -gt 2000) { $info.LastRunTime.ToString('s') } else { $null }
+    $scheduleRaw = if ($ManifestJob) { $ManifestJob.Schedule } else { ConvertFrom-TaskTriggers $Task.Triggers }
+    $description = if ($ManifestJob) { $ManifestJob.Description }
+    else { (([string]$Task.Description) -split [regex]::Escape($script:RuntimeMarker))[0].Trim() }
+    $command = if ($ManifestJob) { $ManifestJob.Command }
+    else {
+        $arguments = [string]$Task.Actions[0].Arguments
+        $execute = [string]$Task.Actions[0].Execute
+        if ($execute -match '\s' -and $execute -notmatch '^"') { $execute = "`"$execute`"" }
+        if ($arguments.StartsWith('--headless ')) { $arguments.Substring(11) } else { "$execute $arguments".Trim() }
+    }
+    [pscustomobject]@{
+        name          = $Task.TaskName
+        source        = $Source
+        owner         = $Owner
+        task          = "$Folder$($Task.TaskName)"
+        description   = $description
+        scheduleRaw   = $scheduleRaw
+        scheduleHuman = ConvertTo-ScheduleHuman $scheduleRaw
+        enabled       = [bool]$Task.Settings.Enabled
+        state         = [string]$Task.State
+        nextRun       = $nextRun
+        lastRun       = $lastRun
+        command       = $command
+    }
+}
+
+function Get-AllSchedulerJobs {
+    # Every job under $Root, manifest and runtime alike, in one shape: what the Scheduler jobs
+    # dashboard (M.SCHD-T38) and the future Azure mirror push both read.
+    [CmdletBinding()]
+    param([string]$Root = $script:JobRoot, [string]$Manifest)
+
+    $folder = ConvertTo-TaskFolder $Root
+    if (-not $Manifest) { $Manifest = Join-Path $PSScriptRoot 'jobs.json' }
+    $manifestJobs = @{}
+    if (Test-Path -LiteralPath $Manifest) {
+        # No @() around this call: Read-JobManifest's own trailing ", $jobs" already makes it
+        # array-safe, and wrapping it again turns a 15-job array into a 1-element array holding
+        # that array, so every name lookup below would silently miss.
+        foreach ($j in (Read-JobManifest $Manifest $folder)) { $manifestJobs[$j.Name] = $j }
+    }
+
+    $results = @()
+
+    $rootTasks = @(Get-ScheduledTask -TaskPath $folder -ErrorAction SilentlyContinue | Where-Object { $_.TaskPath -ieq $folder })
+    foreach ($t in $rootTasks) {
+        $results += ConvertTo-JobStatus -Task $t -Folder $folder -Source 'manifest' -Owner $null -ManifestJob $manifestJobs[$t.TaskName]
+    }
+
+    foreach ($owner in Get-OwnerNames $folder) {
+        $ownerFolder = Get-OwnerFolder $owner $Root
+        $tasks = @(Get-ScheduledTask -TaskPath $ownerFolder -ErrorAction SilentlyContinue | Where-Object { $_.TaskPath -ieq $ownerFolder })
+        foreach ($t in $tasks) {
+            $results += ConvertTo-JobStatus -Task $t -Folder $ownerFolder -Source 'runtime' -Owner $owner -ManifestJob $null
+        }
+    }
+
+    , $results
+}
+
+function Enable-SchedulerJob {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][string]$Owner,
+        [string]$Root = $script:JobRoot
+    )
+    Test-JobName $Name 'Job name'
+    $folder = Get-OwnerFolder $Owner $Root
+    if (-not (Get-ScheduledTask -TaskPath $folder -TaskName $Name -ErrorAction SilentlyContinue)) {
+        throw "No job '$Name' for owner '$Owner' ($folder$Name)."
+    }
+    Enable-ScheduledTask -TaskPath $folder -TaskName $Name | Out-Null
+    Write-Output "enabled $folder$Name"
+}
+
+function Disable-SchedulerJob {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][string]$Owner,
+        [string]$Root = $script:JobRoot
+    )
+    Test-JobName $Name 'Job name'
+    $folder = Get-OwnerFolder $Owner $Root
+    if (-not (Get-ScheduledTask -TaskPath $folder -TaskName $Name -ErrorAction SilentlyContinue)) {
+        throw "No job '$Name' for owner '$Owner' ($folder$Name)."
+    }
+    Disable-ScheduledTask -TaskPath $folder -TaskName $Name | Out-Null
+    Write-Output "disabled $folder$Name"
+}
+
 function Read-JobArguments([string[]]$Arguments) {
     # '<positional> --flag value --switch ...' -> @{ Positional = @(...); Flags = @{ flag = @(values) } }
     $switches = @('json')
@@ -202,6 +377,9 @@ usage: scheduler job add <name> --owner <app> (--at <time> | --every <hh:mm:ss>)
                          [--workdir <dir>] [--description <text>] [--replaces <task>]...
        scheduler job cancel <name> --owner <app>
        scheduler job list --owner <app> [--json]
+       scheduler job status [--json]
+       scheduler job enable <name> --owner <app>
+       scheduler job disable <name> --owner <app>
 '@
     if ($Arguments.Count -lt 2 -or $Arguments[0] -ne 'job') { throw $usage }
     $verb = $Arguments[1].ToLowerInvariant()
@@ -236,6 +414,24 @@ usage: scheduler job add <name> --owner <app> (--at <time> | --every <hh:mm:ss>)
             if ($parsed.Flags['json']) { ConvertTo-Json -InputObject $jobs -Depth 3 -Compress }
             elseif ($jobs.Count -eq 0) { 'No jobs.' }
             else { $jobs | Format-Table name, nextRun, state, command -AutoSize | Out-String -Width 4096 | ForEach-Object TrimEnd }
+        }
+        'status' {
+            Assert-KnownFlags $parsed @('json')
+            if ($parsed.Positional.Count -ne 0) { throw "job status takes no job name.`n$usage" }
+            $jobs = @(Get-AllSchedulerJobs)
+            if ($parsed.Flags['json']) { ConvertTo-Json -InputObject $jobs -Depth 6 -Compress }
+            elseif ($jobs.Count -eq 0) { 'No jobs.' }
+            else { $jobs | Format-Table name, source, owner, enabled, scheduleHuman, nextRun, lastRun -AutoSize | Out-String -Width 4096 | ForEach-Object TrimEnd }
+        }
+        'enable' {
+            Assert-KnownFlags $parsed @('owner')
+            if ($parsed.Positional.Count -ne 1) { throw "job enable takes exactly one job name.`n$usage" }
+            Enable-SchedulerJob -Name $parsed.Positional[0] -Owner (Get-Flag $parsed 'owner' -Required)
+        }
+        'disable' {
+            Assert-KnownFlags $parsed @('owner')
+            if ($parsed.Positional.Count -ne 1) { throw "job disable takes exactly one job name.`n$usage" }
+            Disable-SchedulerJob -Name $parsed.Positional[0] -Owner (Get-Flag $parsed 'owner' -Required)
         }
         default { throw $usage }
     }

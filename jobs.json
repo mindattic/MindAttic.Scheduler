@@ -102,6 +102,14 @@
       "replaces": ["MindAttic LghubWatchdog"]
     },
     {
+      "name": "GridGame.Nightly",
+      "description": "GridGame Gaiden nightly run (owner 2026-11-17: tests and telemetry overnight, never during the working day): the full test suite on a clean origin/main copy, bot balance soaks, a dev build and an endless telemetry run with its report, and a fix ticket per new failing test. Logs and summary.md land in Unity.GridGame/artifacts/nightly/<date>.",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\Unity.GridGame\\tools\\nightly.ps1\"",
+      "workingDirectory": "D:\\Projects\\MindAttic\\Unity.GridGame",
+      "schedule": { "daily": "02:00" },
+      "timeLimit": "06:00:00"
+    },
+    {
       "name": "Azure.BackupNightly",
       "description": "Azure SQL backup, nightly tier (MAT-T147, docs/ops/azure-migration/BACKUP.md): a full export (bacpac) of every always-on DTU database (IdiotProof, ClaudeActivity, MindAttic.Tickets, MindAttic.Orchestrator and any other Basic/Standard database on the server) to R:\\Backup\\MindAttic\\azure and to blob db-backups/bacpac, each checked offline, keeping the newest 14 plus 8 weekly plus 12 monthly per database on both sides. Logs: R:\\Backup\\MindAttic\\azure\\logs.",
       "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\docs\\ops\\azure-migration\\Backup-Scheduled.ps1\" -Tier AlwaysOn -KeepNewest 14 -KeepWeekly 8 -KeepMonthly 12",

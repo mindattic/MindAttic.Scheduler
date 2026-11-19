@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/MindAttic.Scheduler.Core/MindAttic.Scheduler.Core.csproj" />
+  <Project Path="src/MindAttic.Scheduler.Wpf/MindAttic.Scheduler.Wpf.csproj" />
+  <Project Path="tests/MindAttic.Scheduler.Core.Tests/MindAttic.Scheduler.Core.Tests.csproj" />
+</Solution>

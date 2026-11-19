@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>MindAttic.Scheduler.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Human text for whatever cron the user types in the schedule editor's free-text field
+         (M.SCHD-T38), even for shapes CronTranslator can't map onto a Windows Task Scheduler
+         trigger; the mapping itself is this project's own, deliberately narrow code. -->
+    <PackageReference Include="CronExpressionDescriptor" Version="2.37.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MindAttic.Scheduler.Core.Tests" />
+  </ItemGroup>
+
+</Project>

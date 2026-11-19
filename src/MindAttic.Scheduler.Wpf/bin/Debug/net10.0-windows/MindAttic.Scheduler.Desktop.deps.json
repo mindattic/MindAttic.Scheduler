@@ -1,0 +1,224 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "MindAttic.Scheduler.Desktop/1.0.0": {
+        "dependencies": {
+          "MindAttic.Components.Wpf": "45.0.0",
+          "MindAttic.Scheduler.Core": "1.0.0",
+          "Microsoft.Web.WebView2.Core": "1.0.3179.45",
+          "Microsoft.Web.WebView2.WinForms": "1.0.3179.45",
+          "Microsoft.Web.WebView2.Wpf": "1.0.3179.45"
+        },
+        "runtime": {
+          "MindAttic.Scheduler.Desktop.dll": {}
+        }
+      },
+      "CronExpressionDescriptor/2.37.0": {
+        "runtime": {
+          "lib/net6.0/CronExpressionDescriptor.dll": {
+            "assemblyVersion": "2.37.0.0",
+            "fileVersion": "2.37.0.0"
+          }
+        },
+        "resources": {
+          "lib/net6.0/cs/CronExpressionDescriptor.resources.dll": {
+            "locale": "cs"
+          },
+          "lib/net6.0/da/CronExpressionDescriptor.resources.dll": {
+            "locale": "da"
+          },
+          "lib/net6.0/de/CronExpressionDescriptor.resources.dll": {
+            "locale": "de"
+          },
+          "lib/net6.0/es-MX/CronExpressionDescriptor.resources.dll": {
+            "locale": "es-MX"
+          },
+          "lib/net6.0/es/CronExpressionDescriptor.resources.dll": {
+            "locale": "es"
+          },
+          "lib/net6.0/fa/CronExpressionDescriptor.resources.dll": {
+            "locale": "fa"
+          },
+          "lib/net6.0/fi/CronExpressionDescriptor.resources.dll": {
+            "locale": "fi"
+          },
+          "lib/net6.0/fr/CronExpressionDescriptor.resources.dll": {
+            "locale": "fr"
+          },
+          "lib/net6.0/he-IL/CronExpressionDescriptor.resources.dll": {
+            "locale": "he-IL"
+          },
+          "lib/net6.0/hu/CronExpressionDescriptor.resources.dll": {
+            "locale": "hu"
+          },
+          "lib/net6.0/it/CronExpressionDescriptor.resources.dll": {
+            "locale": "it"
+          },
+          "lib/net6.0/ja/CronExpressionDescriptor.resources.dll": {
+            "locale": "ja"
+          },
+          "lib/net6.0/ko/CronExpressionDescriptor.resources.dll": {
+            "locale": "ko"
+          },
+          "lib/net6.0/nb/CronExpressionDescriptor.resources.dll": {
+            "locale": "nb"
+          },
+          "lib/net6.0/nl/CronExpressionDescriptor.resources.dll": {
+            "locale": "nl"
+          },
+          "lib/net6.0/pl/CronExpressionDescriptor.resources.dll": {
+            "locale": "pl"
+          },
+          "lib/net6.0/pt/CronExpressionDescriptor.resources.dll": {
+            "locale": "pt"
+          },
+          "lib/net6.0/ro/CronExpressionDescriptor.resources.dll": {
+            "locale": "ro"
+          },
+          "lib/net6.0/ru/CronExpressionDescriptor.resources.dll": {
+            "locale": "ru"
+          },
+          "lib/net6.0/sl/CronExpressionDescriptor.resources.dll": {
+            "locale": "sl"
+          },
+          "lib/net6.0/sv/CronExpressionDescriptor.resources.dll": {
+            "locale": "sv"
+          },
+          "lib/net6.0/tr/CronExpressionDescriptor.resources.dll": {
+            "locale": "tr"
+          },
+          "lib/net6.0/uk/CronExpressionDescriptor.resources.dll": {
+            "locale": "uk"
+          },
+          "lib/net6.0/vi/CronExpressionDescriptor.resources.dll": {
+            "locale": "vi"
+          },
+          "lib/net6.0/zh-Hans/CronExpressionDescriptor.resources.dll": {
+            "locale": "zh-Hans"
+          },
+          "lib/net6.0/zh-Hant/CronExpressionDescriptor.resources.dll": {
+            "locale": "zh-Hant"
+          }
+        }
+      },
+      "Microsoft.Web.WebView2/1.0.3179.45": {
+        "runtimeTargets": {
+          "runtimes/win-arm64/native/WebView2Loader.dll": {
+            "rid": "win-arm64",
+            "assetType": "native",
+            "fileVersion": "1.0.3179.45"
+          },
+          "runtimes/win-x64/native/WebView2Loader.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "1.0.3179.45"
+          },
+          "runtimes/win-x86/native/WebView2Loader.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "1.0.3179.45"
+          }
+        }
+      },
+      "MindAttic.Components.Wpf/45.0.0": {
+        "dependencies": {
+          "Microsoft.Web.WebView2": "1.0.3179.45"
+        },
+        "runtime": {
+          "lib/net10.0-windows7.0/MindAttic.Components.Wpf.dll": {
+            "assemblyVersion": "45.0.0.0",
+            "fileVersion": "45.0.0.0"
+          }
+        }
+      },
+      "MindAttic.Scheduler.Core/1.0.0": {
+        "dependencies": {
+          "CronExpressionDescriptor": "2.37.0"
+        },
+        "runtime": {
+          "MindAttic.Scheduler.Core.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "Microsoft.Web.WebView2.Core/1.0.3179.45": {
+        "runtime": {
+          "Microsoft.Web.WebView2.Core.dll": {
+            "assemblyVersion": "1.0.3179.45",
+            "fileVersion": "1.0.3179.45"
+          }
+        }
+      },
+      "Microsoft.Web.WebView2.WinForms/1.0.3179.45": {
+        "runtime": {
+          "Microsoft.Web.WebView2.WinForms.dll": {
+            "assemblyVersion": "1.0.3179.45",
+            "fileVersion": "1.0.3179.45"
+          }
+        }
+      },
+      "Microsoft.Web.WebView2.Wpf/1.0.3179.45": {
+        "runtime": {
+          "Microsoft.Web.WebView2.Wpf.dll": {
+            "assemblyVersion": "1.0.3179.45",
+            "fileVersion": "1.0.3179.45"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "MindAttic.Scheduler.Desktop/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "CronExpressionDescriptor/2.37.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ir97lO1hzSyxziT+Ys9Xx95HR/3vjDhwc4+QoOIiiqj1toTpLVMOSYt2ajzsYW/xWfykvoJtw5j8svlvwmgWHg==",
+      "path": "cronexpressiondescriptor/2.37.0",
+      "hashPath": "cronexpressiondescriptor.2.37.0.nupkg.sha512"
+    },
+    "Microsoft.Web.WebView2/1.0.3179.45": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-3pokSH5CnN0G6rGhGFo1y87inxYhNxBQ2Vdf0wlvBj99KHxQJormjDACmqRnFeUsmuNFIhWwfAL1ztq7wD5qRA==",
+      "path": "microsoft.web.webview2/1.0.3179.45",
+      "hashPath": "microsoft.web.webview2.1.0.3179.45.nupkg.sha512"
+    },
+    "MindAttic.Components.Wpf/45.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-4M8keYVRsyYoTSxvfI3sTqIsyOsR2QiA54qUuGHjG6eXJLSx/g4uF4kUmtQsc5N3cSsEHUjhHm4HQ6TcyoRTTg==",
+      "path": "mindattic.components.wpf/45.0.0",
+      "hashPath": "mindattic.components.wpf.45.0.0.nupkg.sha512"
+    },
+    "MindAttic.Scheduler.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Microsoft.Web.WebView2.Core/1.0.3179.45": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Microsoft.Web.WebView2.WinForms/1.0.3179.45": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Microsoft.Web.WebView2.Wpf/1.0.3179.45": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

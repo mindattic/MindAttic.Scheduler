@@ -127,6 +127,21 @@ Describe 'Read-JobManifest validation' {
         (Read-JobManifest $m)[0].Command | Should -Be "$env:SystemRoot\x.exe"
     }
 
+    It 'defaults enabled to true and accepts an explicit false' {
+        $m = Write-Manifest @(
+            @{ name = 'A'; command = 'a'; schedule = @{ atLogon = $true } },
+            @{ name = 'B'; command = 'b'; schedule = @{ atLogon = $true }; enabled = $false }
+        )
+        $jobs = Read-JobManifest $m
+        ($jobs | Where-Object Name -eq 'A').Enabled | Should -BeTrue
+        ($jobs | Where-Object Name -eq 'B').Enabled | Should -BeFalse
+    }
+
+    It 'accepts daysOfWeek on a daily entry' {
+        $m = Write-Manifest @(@{ name = 'A'; command = 'a'; schedule = @{ daily = '09:00'; daysOfWeek = @('Mon', 'Tue', 'Wed', 'Thu', 'Fri') } })
+        (Read-JobManifest $m)[0].Schedule[0].daysOfWeek | Should -Be @('Mon', 'Tue', 'Wed', 'Thu', 'Fri')
+    }
+
     It 'rejects <case>' -ForEach @(
         @{ case = 'a duplicate name';      jobs = @(@{ name = 'A'; command = 'a'; schedule = @{ atLogon = $true } }, @{ name = 'a'; command = 'b'; schedule = @{ atLogon = $true } }) }
         @{ case = 'a missing command';     jobs = @(@{ name = 'A'; schedule = @{ atLogon = $true } }) }
@@ -138,6 +153,11 @@ Describe 'Read-JobManifest validation' {
         @{ case = 'replacing a Scheduler task'; jobs = @(@{ name = 'A'; command = 'a'; schedule = @{ atLogon = $true }; replaces = @('\MindAttic\Scheduler\Other') }) }
         @{ case = 'keepRunning with a timeLimit'; jobs = @(@{ name = 'A'; command = 'a'; schedule = @{ atLogon = $true }; keepRunning = $true; timeLimit = '01:00:00' }) }
         @{ case = 'a non-boolean keepRunning'; jobs = @(@{ name = 'A'; command = 'a'; schedule = @{ atLogon = $true }; keepRunning = 'yes' }) }
+        @{ case = 'a non-boolean enabled'; jobs = @(@{ name = 'A'; command = 'a'; schedule = @{ atLogon = $true }; enabled = 'yes' }) }
+        @{ case = 'daysOfWeek on an every entry'; jobs = @(@{ name = 'A'; command = 'a'; schedule = @{ every = '00:05:00'; daysOfWeek = @('Mon') } }) }
+        @{ case = 'daysOfWeek on an atLogon entry'; jobs = @(@{ name = 'A'; command = 'a'; schedule = @{ atLogon = $true; daysOfWeek = @('Mon') } }) }
+        @{ case = 'an empty daysOfWeek list'; jobs = @(@{ name = 'A'; command = 'a'; schedule = @{ daily = '09:00'; daysOfWeek = @() } }) }
+        @{ case = 'an unrecognised day name'; jobs = @(@{ name = 'A'; command = 'a'; schedule = @{ daily = '09:00'; daysOfWeek = @('Someday') } }) }
     ) {
         { Read-JobManifest (Write-Manifest $jobs) } | Should -Throw
     }
@@ -259,6 +279,49 @@ Describe 'Install-SchedulerJobs against the real Task Scheduler' {
         finally {
             Stop-ScheduledTask -TaskPath $script:Folder -TaskName 'Daemon' -ErrorAction SilentlyContinue
             # Put the folder back the way the -WhatIf test expects it.
+            Install-SchedulerJobs -Manifest (Write-Manifest @(@{ name = 'Tick'; command = $script:Cmd; schedule = @{ every = '00:05:00' } })) -TaskPath $script:Folder | Out-Null
+        }
+    }
+
+    It 'registers a disabled job disabled, and reinstalling preserves both states' {
+        try {
+            $disabled = Write-Manifest @(
+                @{ name = 'Tick'; command = $script:Cmd; schedule = @{ every = '00:05:00' } },
+                @{ name = 'Nightly'; command = $script:Cmd; schedule = @{ daily = '03:15' }; enabled = $false }
+            )
+            Install-SchedulerJobs -Manifest $disabled -TaskPath $script:Folder | Out-Null
+            (Get-ScheduledTask -TaskPath $script:Folder -TaskName 'Tick').Settings.Enabled | Should -BeTrue
+            (Get-ScheduledTask -TaskPath $script:Folder -TaskName 'Nightly').Settings.Enabled | Should -BeFalse
+
+            # Rerunning must not silently re-enable it.
+            Install-SchedulerJobs -Manifest $disabled -TaskPath $script:Folder | Out-Null
+            (Get-ScheduledTask -TaskPath $script:Folder -TaskName 'Nightly').Settings.Enabled | Should -BeFalse
+
+            # Flipping the manifest back to enabled must re-enable it.
+            $enabled = Write-Manifest @(
+                @{ name = 'Tick'; command = $script:Cmd; schedule = @{ every = '00:05:00' } },
+                @{ name = 'Nightly'; command = $script:Cmd; schedule = @{ daily = '03:15' } }
+            )
+            Install-SchedulerJobs -Manifest $enabled -TaskPath $script:Folder | Out-Null
+            (Get-ScheduledTask -TaskPath $script:Folder -TaskName 'Nightly').Settings.Enabled | Should -BeTrue
+        }
+        finally {
+            Install-SchedulerJobs -Manifest (Write-Manifest @(@{ name = 'Tick'; command = $script:Cmd; schedule = @{ every = '00:05:00' } })) -TaskPath $script:Folder | Out-Null
+        }
+    }
+
+    It 'registers a daily schedule with daysOfWeek as a weekly trigger' {
+        try {
+            $m = Write-Manifest @(
+                @{ name = 'Tick'; command = $script:Cmd; schedule = @{ every = '00:05:00' } },
+                @{ name = 'Weekdays'; command = $script:Cmd; schedule = @{ daily = '09:00'; daysOfWeek = @('Mon', 'Tue', 'Wed', 'Thu', 'Fri') } }
+            )
+            Install-SchedulerJobs -Manifest $m -TaskPath $script:Folder | Out-Null
+            $t = Get-ScheduledTask -TaskPath $script:Folder -TaskName 'Weekdays'
+            $t.Triggers[0].CimClass.CimClassName | Should -Be 'MSFT_TaskWeeklyTrigger'
+            $t.Triggers[0].DaysOfWeek | Should -Be 62   # Mon(2)+Tue(4)+Wed(8)+Thu(16)+Fri(32)
+        }
+        finally {
             Install-SchedulerJobs -Manifest (Write-Manifest @(@{ name = 'Tick'; command = $script:Cmd; schedule = @{ every = '00:05:00' } })) -TaskPath $script:Folder | Out-Null
         }
     }

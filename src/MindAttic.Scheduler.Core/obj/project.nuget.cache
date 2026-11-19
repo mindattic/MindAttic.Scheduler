@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "v6mf1wOIiV4=",
+  "success": true,
+  "projectFilePath": "D:\\Projects\\MindAttic\\MindAttic.Scheduler\\src\\MindAttic.Scheduler.Core\\MindAttic.Scheduler.Core.csproj",
+  "expectedPackageFiles": [
+    "R:\\Temp\\nuget\\packages\\cronexpressiondescriptor\\2.37.0\\cronexpressiondescriptor.2.37.0.nupkg.sha512"
+  ],
+  "logs": []
+}

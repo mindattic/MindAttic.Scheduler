@@ -47,12 +47,13 @@ would unregister every Scheduler job). Write `"jobs": []` to really have none.
 |---|---|---|
 | `name` | yes | Task name under `\MindAttic\Scheduler\`. Letters, digits, `.`, `_`, `-`, space; unique. |
 | `command` | yes | The full command line (program, quoted if it has spaces, then its arguments). `%VAR%` environment variables are expanded at install time. |
-| `schedule` | yes | One entry or a list of them. Each entry has exactly one of: `{"every": "hh:mm:ss"}` (repeat forever, at least a minute apart), `{"daily": "HH:mm"}`, `{"atLogon": true}`. |
+| `schedule` | yes | One entry or a list of them. Each entry has exactly one of: `{"every": "hh:mm:ss"}` (repeat forever, at least a minute apart), `{"daily": "HH:mm"}`, `{"atLogon": true}`. A `daily` entry may add `"daysOfWeek": ["Mon", ...]` (`Mon`/`Tue`/`Wed`/`Thu`/`Fri`/`Sat`/`Sun`) to run on only those days instead of every day. |
 | `replaces` | no | Tasks this job takes over from, as full paths (`\MindAttic\Launcher\MindAtticLauncherNightlyBackup`) or bare names for root-level tasks. They are removed on install. A task anywhere under `\MindAttic\Scheduler\` (runtime owner subfolders included) is refused. |
 | `workingDirectory` | no | Start-in folder; `%VAR%` expanded. |
 | `description` | no | Shown in Task Scheduler above the "managed by Scheduler" note. |
 | `timeLimit` | no | Kill the run after this long (`hh:mm:ss`, `00:00:00` = never). Default 72 hours, the Windows default. |
 | `keepRunning` | no | `true` for a daemon: no time limit (a `timeLimit` is refused), restarted up to 3 times a minute apart if it fails, and started by the install if it isn't running, so retiring its old task doesn't leave it down until the next logon. |
+| `enabled` | no | `false` to register the task disabled. Default `true`. Applied explicitly on every install, so a disabled job stays disabled across reinstalls and a re-enabled one comes back; the Scheduler jobs dashboard (M.SCHD-T38) toggles this field rather than calling `Disable-ScheduledTask` by hand. |
 
 Every task gets: start when available (catch up a missed run), run on battery, and
 `MultipleInstances = IgnoreNew` (a run still going blocks the next one rather than piling up).
@@ -73,6 +74,9 @@ scheduler job add <name> --owner <app> (--at <time> | --every <hh:mm:ss>) --run 
                   [--workdir <dir>] [--description <text>] [--replaces <task>]...
 scheduler job cancel <name> --owner <app>
 scheduler job list --owner <app> [--json]
+scheduler job status [--json]
+scheduler job enable <name> --owner <app>
+scheduler job disable <name> --owner <app>
 ```
 
 - Each job lands at `\MindAttic\Scheduler\<owner>\<name>` and runs exactly like a manifest job:
@@ -86,6 +90,14 @@ scheduler job list --owner <app> [--json]
   as its last step. The owner's folder goes once its last job does.
 - `list --json` prints `[{name, owner, task, state, nextRun, lastRun, command}]`, times in local
   ISO 8601.
+- `status [--json]` lists *every* job under `\MindAttic\Scheduler\`, manifest jobs and every
+  owner's runtime jobs together: `[{name, source, owner, task, description, scheduleRaw,
+  scheduleHuman, enabled, state, nextRun, lastRun, command}]` (`source` is `"manifest"` or
+  `"runtime"`; `owner` is `null` for a manifest job). This is the one read path the Scheduler
+  jobs dashboard (M.SCHD-T38, see [docs/USER_STORIES.md](docs/USER_STORIES.md)) uses.
+- `enable`/`disable` flip a runtime job's live Enabled bit directly. A manifest job's `enabled`
+  state is set in `jobs.json` instead (see the field table above) and applied by `install.ps1`,
+  so the manifest is always what Task Scheduler actually has.
 - Exit code 0 on success, 1 on any error, with the reason on stderr.
 
 ## Tests
