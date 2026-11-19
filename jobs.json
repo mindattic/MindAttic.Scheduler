@@ -68,6 +68,14 @@
       "timeLimit": "00:15:00"
     },
     {
+      "name": "IdiotProof.GapperRetire",
+      "description": "IdiotProof: at 09:45 ET, after every gapper's 09:28 sell-by, soft-deletes (reversible) the day's flat Paper gapper strategies so none trades the next session on a stale signal; one still booking a position is retried next run (IP-T590). Log: scheduler-jobs.log.",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\IdiotProof\\tools\\retire-gappers.ps1\"",
+      "workingDirectory": "C:\\Apps\\IdiotProof\\Cli",
+      "schedule": { "daily": "08:45" },
+      "timeLimit": "00:45:00"
+    },
+    {
       "name": "IdiotProof.DataMirror",
       "description": "IdiotProof: mirrors D:\\IdiotProofData (gapper-study bars, SEC company facts, FINRA, halts, radar, momentum; ~35 GB) to R:\\Backup\\IdiotProofData with robocopy /MIR, only what changed, build scratch folders skipped (IP-T581). 02:30 Central, after the Launcher backup's busiest stretch. Log: scheduler-jobs.log.",
       "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\IdiotProof\\tools\\mirror-data.ps1\"",
