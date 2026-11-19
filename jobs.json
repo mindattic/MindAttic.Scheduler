@@ -135,10 +135,10 @@
     },
     {
       "name": "Prose.GLMZ.Wiki.Sync",
-      "description": "Keeps the GLMZ wiki (mindattic.com/glmz) up to date with the Prose database, nightly at 00:30 (M.SCHD-T40): Prose tools/wiki/sync-wiki.ps1 exports the GLMZ repos, entities, relationships and books through the Prose Hub (starting it if it is down) and pushes only the pages that changed. A run already in progress makes it exit at once (sync.lock). The last run's log (sync.log) and validation report (out\\repair.md) are in %LOCALAPPDATA%\\MindAttic\\Prose\\wiki\\glmz.",
-      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\Prose\\tools\\wiki\\sync-wiki.ps1\" -Universe glmz",
+      "description": "Keeps the GLMZ wiki (mindattic.com/glmz) and the Prose database in step, on change (PRS-T1049; was nightly, M.SCHD-T40). Every 5 minutes Prose tools/wiki/wiki-watch.ps1 looks for a pending change without touching the database: the Prose Hub's change stamp (written after every save that changes what the wiki shows) and edits people made on the wiki (one API call). Prose changed: once writing has been quiet 5 minutes (at most an hour), it reconciles, then runs sync-wiki.ps1. The wiki changed: wikireconcile.py turns the edits into proposals on Project:Reconciliation and holds those pages. A full sync and check still run once a day. Nothing pending: exits in a second. Logs: watch.log, sync.log, out\\reconcile.md in %LOCALAPPDATA%\\MindAttic\\Prose\\wiki\\glmz.",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\Prose\\tools\\wiki\\wiki-watch.ps1\" -Universe glmz",
       "workingDirectory": "D:\\Projects\\MindAttic\\Prose",
-      "schedule": { "daily": "00:30" },
+      "schedule": { "every": "00:05:00" },
       "timeLimit": "02:00:00"
     },
     {
