@@ -126,6 +126,14 @@
       "timeLimit": "02:00:00"
     },
     {
+      "name": "Prose.WikiSync",
+      "description": "Keeps the GLMZ wiki (mindattic.com/glmz) up to date with the Prose database, nightly at 03:30 (M.SCHD-T40): Prose tools/wiki/sync-wiki.ps1 exports the GLMZ repos, entities, relationships and books through the Prose Hub (starting it if it is down) and pushes only the pages that changed. A run already in progress makes it exit at once (sync.lock). The last run's log (sync.log) and validation report (out\\repair.md) are in %LOCALAPPDATA%\\MindAttic\\Prose\\wiki\\glmz.",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\Prose\\tools\\wiki\\sync-wiki.ps1\" -Universe glmz",
+      "workingDirectory": "D:\\Projects\\MindAttic\\Prose",
+      "schedule": { "daily": "03:30" },
+      "timeLimit": "02:00:00"
+    },
+    {
       "name": "Azure.BackupWeekly",
       "description": "Azure SQL backup, weekly and large tiers (MAT-T147, docs/ops/azure-migration/BACKUP.md). Runs every night but exports a free-offer serverless database at most once every 7 days (the four over 2 GB - Prose, IdiotProof_History, IdiotProof_Research_GAP, IdiotProof_Research_T375 - every 28 days), and never one that is paused and unchanged since its last export, so paused databases are not woken and the 100,000 vCore-second monthly allowance is kept for real work. Same destinations and offline check as Azure.BackupNightly; keeps the newest 4 plus 8 weekly plus 12 monthly per database. Logs: R:\\Backup\\MindAttic\\azure\\logs.",
       "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\docs\\ops\\azure-migration\\Backup-Scheduled.ps1\" -Tier Serverless,Large -ServerlessEveryDays 7 -LargeEveryDays 28 -KeepNewest 4 -KeepWeekly 8 -KeepMonthly 12",
