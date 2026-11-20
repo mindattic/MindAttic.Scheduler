@@ -1,36 +1,41 @@
 using System.Diagnostics;
 using MindAttic.Scheduler.Core;
 using Microsoft.Data.SqlClient;
-using Xunit;
+using NUnit.Framework;
 
 namespace MindAttic.Scheduler.Core.Tests;
 
-/// <summary>A fact that runs only where LocalDB is installed.</summary>
-public sealed class LocalDbFactAttribute : FactAttribute
+/// <summary>The run log against a scratch LocalDB database per test (dropped afterwards).</summary>
+public sealed class RunLogTests
 {
-    public LocalDbFactAttribute()
-    {
-        var exe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft SQL Server");
-        var found = Directory.Exists(exe) &&
-            Directory.EnumerateFiles(exe, "SqlLocalDB.exe", SearchOption.AllDirectories).Any();
-        if (!found) Skip = "LocalDB (SqlLocalDB.exe) is not installed on this machine.";
-    }
-}
-
-/// <summary>The run log against a scratch LocalDB database (dropped afterwards).</summary>
-public sealed class RunLogTests : IDisposable
-{
-    private readonly string dbName = $"MindAttic.Scheduler.Tests.{Guid.NewGuid():N}";
-    private readonly string spool = Path.Combine(Path.GetTempPath(), $"scheduler-spool-{Guid.NewGuid():N}.jsonl");
+    private string dbName = "";
+    private string spool = "";
 
     private string ConnectionString =>
         $@"Server=(localdb)\MSSQLLocalDB;Database={dbName};Integrated Security=true;TrustServerCertificate=true;Connect Timeout=30";
 
     private SchedulerDb Db() => new(ConnectionString, "test");
 
-    public void Dispose()
+    private static bool LocalDbInstalled()
     {
-        File.Delete(spool);
+        var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft SQL Server");
+        return Directory.Exists(root) &&
+            Directory.EnumerateFiles(root, "SqlLocalDB.exe", SearchOption.AllDirectories).Any();
+    }
+
+    [SetUp]
+    public void SetUp()
+    {
+        if (!LocalDbInstalled()) Assert.Ignore("LocalDB (SqlLocalDB.exe) is not installed on this machine.");
+        dbName = $"MindAttic.Scheduler.Tests.{Guid.NewGuid():N}";
+        spool = Path.Combine(Path.GetTempPath(), $"scheduler-spool-{Guid.NewGuid():N}.jsonl");
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        if (spool.Length > 0) File.Delete(spool);
+        if (dbName.Length == 0) return;
         try
         {
             SqlConnection.ClearAllPools();
@@ -43,17 +48,17 @@ public sealed class RunLogTests : IDisposable
         catch (SqlException) { /* best effort */ }
     }
 
-    [LocalDbFact]
+    [Test]
     public void MigrateIsIdempotent()
     {
         var db = Db();
         db.Migrate();
         db.Migrate();
 
-        Assert.Equal(SchedulerDb.SchemaVersion, db.ReadSchemaVersion());
+        Assert.That(db.ReadSchemaVersion(), Is.EqualTo(SchedulerDb.SchemaVersion));
     }
 
-    [LocalDbFact]
+    [Test]
     public void RecordsAStartAndAnEnd()
     {
         var db = Db();
@@ -65,16 +70,18 @@ public sealed class RunLogTests : IDisposable
         log.MarkStarted(key, queued.AddSeconds(10));
         log.End(key, queued.AddSeconds(25), exitCode: 3);
 
-        var run = Assert.Single(log.Runs("Job.A"));
-        Assert.Equal("failed", run.Outcome);
-        Assert.Equal(3, run.ExitCode);
-        Assert.True(run.Exclusive);
-        Assert.Equal(TimeSpan.FromSeconds(10), run.Wait);
-        Assert.Equal(TimeSpan.FromSeconds(15), run.Duration);
-        Assert.False(File.Exists(spool));
+        var runs = log.Runs("Job.A");
+        Assert.That(runs, Has.Count.EqualTo(1));
+        var run = runs[0];
+        Assert.That(run.Outcome, Is.EqualTo("failed"));
+        Assert.That(run.ExitCode, Is.EqualTo(3));
+        Assert.That(run.Exclusive, Is.True);
+        Assert.That(run.Wait, Is.EqualTo(TimeSpan.FromSeconds(10)));
+        Assert.That(run.Duration, Is.EqualTo(TimeSpan.FromSeconds(15)));
+        Assert.That(File.Exists(spool), Is.False);
     }
 
-    [LocalDbFact]
+    [Test]
     public void SummariesAverageTheSuccessfulRuns()
     {
         var db = Db();
@@ -90,12 +97,12 @@ public sealed class RunLogTests : IDisposable
 
         var s = log.Summaries()["Job.B"];
 
-        Assert.Equal(2, s.MeasuredRuns);
-        Assert.Equal(TimeSpan.FromMinutes(15), s.UsualDuration);
-        Assert.Equal("failed", s.Last!.Outcome);
+        Assert.That(s.MeasuredRuns, Is.EqualTo(2));
+        Assert.That(s.UsualDuration, Is.EqualTo(TimeSpan.FromMinutes(15)));
+        Assert.That(s.Last!.Outcome, Is.EqualTo("failed"));
     }
 
-    [LocalDbFact]
+    [Test]
     public void MarksARunWhoseProcessIsGoneAbandoned()
     {
         var db = Db();
@@ -107,12 +114,12 @@ public sealed class RunLogTests : IDisposable
         log.Start("Job.C", false, DateTimeOffset.Now, gone.Id);
         log.Start("Job.D", false, DateTimeOffset.Now); // this process: alive
 
-        Assert.Equal(1, log.SweepAbandoned());
-        Assert.Equal("abandoned", log.Runs("Job.C").Single().Outcome);
-        Assert.Equal("running", log.Runs("Job.D").Single().Outcome);
+        Assert.That(log.SweepAbandoned(), Is.EqualTo(1));
+        Assert.That(log.Runs("Job.C").Single().Outcome, Is.EqualTo("abandoned"));
+        Assert.That(log.Runs("Job.D").Single().Outcome, Is.EqualTo("running"));
     }
 
-    [LocalDbFact]
+    [Test]
     public void SpoolsWhenTheDatabaseIsUnreachableThenFlushes()
     {
         var real = Db();
@@ -123,15 +130,16 @@ public sealed class RunLogTests : IDisposable
         var key = offline.Start("Job.E", false, DateTimeOffset.Now.AddMinutes(-2));
         offline.End(key, DateTimeOffset.Now, 0);
 
-        Assert.NotNull(offline.LastError);
-        Assert.Equal(2, File.ReadAllLines(spool).Count(l => l.Length > 0));
-        Assert.Empty(new RunLog(real, spool + ".unused").Runs("Job.E"));
+        Assert.That(offline.LastError, Is.Not.Null);
+        Assert.That(File.ReadAllLines(spool).Count(l => l.Length > 0), Is.EqualTo(2));
+        Assert.That(new RunLog(real, spool + ".unused").Runs("Job.E"), Is.Empty);
 
         var online = new RunLog(real, spool);
-        Assert.Equal(2, online.FlushSpool());
+        Assert.That(online.FlushSpool(), Is.EqualTo(2));
 
-        Assert.False(File.Exists(spool));
-        var run = Assert.Single(online.Runs("Job.E"));
-        Assert.Equal("succeeded", run.Outcome);
+        Assert.That(File.Exists(spool), Is.False);
+        var runs = online.Runs("Job.E");
+        Assert.That(runs, Has.Count.EqualTo(1));
+        Assert.That(runs[0].Outcome, Is.EqualTo("succeeded"));
     }
 }

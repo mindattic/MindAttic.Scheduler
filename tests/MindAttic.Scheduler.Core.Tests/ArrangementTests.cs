@@ -1,12 +1,12 @@
 using MindAttic.Scheduler.Cli;
 using MindAttic.Scheduler.Core;
-using Xunit;
+using NUnit.Framework;
 
 namespace MindAttic.Scheduler.Core.Tests;
 
 public class ArrangementTests
 {
-    [Fact]
+    [Test]
     public void RoundTripsThroughTheFile()
     {
         var path = Path.Combine(Path.GetTempPath(), $"arrangement-tests-{Guid.NewGuid():N}.json");
@@ -18,20 +18,20 @@ public class ArrangementTests
 
             var back = Arrangement.Load(path);
 
-            Assert.Equal("00:01", back.Slots["A"].Start);
-            Assert.Equal(42, back.Slots["A"].DurationMinutes);
-            Assert.Equal("measured", back.Slots["A"].Source);
-            Assert.Equal(1, back.StartOf("A"));
-            Assert.Contains("\"slots\"", File.ReadAllText(path), StringComparison.Ordinal);
+            Assert.That(back.Slots["A"].Start, Is.EqualTo("00:01"));
+            Assert.That(back.Slots["A"].DurationMinutes, Is.EqualTo(42));
+            Assert.That(back.Slots["A"].Source, Is.EqualTo("measured"));
+            Assert.That(back.StartOf("A"), Is.EqualTo(1));
+            Assert.That(File.ReadAllText(path), Does.Contain("\"slots\""));
         }
         finally { File.Delete(path); }
     }
 
-    [Fact]
+    [Test]
     public void AMissingFileIsAnEmptyArrangement() =>
-        Assert.Empty(Arrangement.Load(Path.Combine(Path.GetTempPath(), $"no-such-{Guid.NewGuid():N}.json")).Slots);
+        Assert.That(Arrangement.Load(Path.Combine(Path.GetTempPath(), $"no-such-{Guid.NewGuid():N}.json")).Slots, Is.Empty);
 
-    [Fact]
+    [Test]
     public void ManifestReaderSeesAutoEntriesAndEstimates()
     {
         var path = Path.Combine(Path.GetTempPath(), $"jobs-auto-{Guid.NewGuid():N}.json");
@@ -45,16 +45,16 @@ public class ArrangementTests
         {
             var jobs = ManifestJob.Load(path);
 
-            Assert.True(jobs[0].IsAuto);
-            Assert.Equal(TimeSpan.FromMinutes(20), jobs[0].Estimate);
-            Assert.False(jobs[1].IsAuto);
-            Assert.False(jobs[1].Enabled);
-            Assert.Equal(2, jobs[1].Schedule.Count);
+            Assert.That(jobs[0].IsAuto, Is.True);
+            Assert.That(jobs[0].Estimate, Is.EqualTo(TimeSpan.FromMinutes(20)));
+            Assert.That(jobs[1].IsAuto, Is.False);
+            Assert.That(jobs[1].Enabled, Is.False);
+            Assert.That(jobs[1].Schedule, Has.Count.EqualTo(2));
         }
         finally { File.Delete(path); }
     }
 
-    [Fact]
+    [Test]
     public void NightReportCallsAnUnrunPastSlotMissedAndALateFinishOverran()
     {
         var night = new DateOnly(2026, 11, 20);
@@ -73,13 +73,13 @@ public class ArrangementTests
 
         var rows = NightReport.Build(night, ["Missed", "Late", "Later"], arrangement, [late], midnight.AddHours(7.5));
 
-        Assert.Equal("missed", rows.Single(r => r.Name == "Missed").Outcome);
-        Assert.True(rows.Single(r => r.Name == "Late").Overran);
-        Assert.Equal("succeeded, overran", rows.Single(r => r.Name == "Late").Display);
-        Assert.Equal("pending", rows.Single(r => r.Name == "Later").Outcome);
+        Assert.That(rows.Single(r => r.Name == "Missed").Outcome, Is.EqualTo("missed"));
+        Assert.That(rows.Single(r => r.Name == "Late").Overran, Is.True);
+        Assert.That(rows.Single(r => r.Name == "Late").Display, Is.EqualTo("succeeded, overran"));
+        Assert.That(rows.Single(r => r.Name == "Later").Outcome, Is.EqualTo("pending"));
     }
 
-    [Fact]
+    [Test]
     public void RunCommandKeepsTheCommandLineExactlyAsGiven()
     {
         const string raw = "\"C:\\Apps\\mindattic-scheduler.exe\" run Azure.BackupNightly --exclusive -- powershell.exe -File \"D:\\A B\\x.ps1\" -Tier \"Basic,Small\"";
@@ -87,10 +87,10 @@ public class ArrangementTests
 
         var parsed = RunCommand.Parse(args, raw);
 
-        Assert.Equal("Azure.BackupNightly", parsed.Job);
-        Assert.True(parsed.Exclusive);
-        Assert.Equal("powershell.exe -File \"D:\\A B\\x.ps1\" -Tier \"Basic,Small\"", parsed.Command);
-        Assert.Equal(("C:\\A B\\x.exe", "--keep 30"), RunCommand.Split("\"C:\\A B\\x.exe\" --keep 30"));
-        Assert.Equal(("powershell.exe", "-NoProfile"), RunCommand.Split("powershell.exe -NoProfile"));
+        Assert.That(parsed.Job, Is.EqualTo("Azure.BackupNightly"));
+        Assert.That(parsed.Exclusive, Is.True);
+        Assert.That(parsed.Command, Is.EqualTo("powershell.exe -File \"D:\\A B\\x.ps1\" -Tier \"Basic,Small\""));
+        Assert.That(RunCommand.Split("\"C:\\A B\\x.exe\" --keep 30"), Is.EqualTo(("C:\\A B\\x.exe", "--keep 30")));
+        Assert.That(RunCommand.Split("powershell.exe -NoProfile"), Is.EqualTo(("powershell.exe", "-NoProfile")));
     }
 }
