@@ -470,7 +470,7 @@ Describe 'Install-SchedulerJobs against the real Task Scheduler' {
             $d = Get-ScheduledTask -TaskPath $script:Folder -TaskName 'Daemon'
             $d.State | Should -Be 'Running'
             $d.Settings.ExecutionTimeLimit | Should -Be 'PT0S'
-            $d.Settings.RestartCount | Should -Be 3
+            $d.Settings.RestartCount | Should -Be 999
             $d.Settings.RestartInterval | Should -Be 'PT1M'
             # Rerunning leaves the running instance alone.
             Install-SchedulerJobs -Manifest $m -TaskPath $script:Folder | Should -Not -Contain "  started $($script:Folder)Daemon"

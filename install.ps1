@@ -464,8 +464,11 @@ function Install-SchedulerJobs {
         if (-not $PSCmdlet.ShouldProcess("$folder$($job.Name)", 'register')) { continue }
         $settingsArgs = @{}
         if ($job.KeepRunning) {
-            # A daemon: restarted if it fails, like the app-registered tasks it replaces.
-            $settingsArgs.RestartCount = 3
+            # A daemon: restarted if it fails, like the app-registered tasks it replaces. 999 (not 3, M.SCHD-T51:
+            # a daemon that crashed more than 3 times - e.g. Orchestrator.Daemon repeatedly OOM-killed or
+            # taskkilled - stayed down with no pacing until the next logon) is as high as Task Scheduler lets a
+            # keepRunning job go; at the 1-minute interval below that's about 16.5 hours of retries before giving up.
+            $settingsArgs.RestartCount = 999
             $settingsArgs.RestartInterval = [TimeSpan]::FromMinutes(1)
         }
         $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
