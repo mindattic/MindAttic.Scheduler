@@ -122,9 +122,9 @@
     },
     {
       "name": "GridGame.Nightly",
-      "description": "GridGame Gaiden nightly run (owner 2026-11-17: tests and telemetry overnight, never during the working day): the full test suite on a clean origin/main copy, bot balance soaks, a dev build and an endless telemetry run with its report, and a fix ticket per new failing test. Overnight, at the slot Scheduler.Arrange gives it. Logs and summary.md land in Unity.GridGame/artifacts/nightly/<date>.",
-      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\Unity.GridGame\\tools\\nightly.ps1\"",
-      "workingDirectory": "D:\\Projects\\MindAttic\\Unity.GridGame",
+      "description": "GridGame Gaiden nightly run (owner 2026-11-17: tests and telemetry overnight, never during the working day): the full test suite on a clean origin/main copy, bot balance soaks, a dev build and an endless telemetry run with its report, and a fix ticket per new failing test. Overnight, at the slot Scheduler.Arrange gives it. Logs and summary.md land in GridGame.Unity/artifacts/nightly/<date>.",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\GridGame.Unity\\tools\\nightly.ps1\"",
+      "workingDirectory": "D:\\Projects\\MindAttic\\GridGame.Unity",
       "schedule": { "daily": "auto" },
       "estimate": "02:00:00",
       "timeLimit": "06:00:00"
