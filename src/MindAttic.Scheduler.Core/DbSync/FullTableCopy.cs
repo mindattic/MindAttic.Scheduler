@@ -10,7 +10,8 @@ public sealed record FullCopyResult(string Table, bool Truncated, long RowsDelet
 /// <summary>
 /// Replaces a target table's rows with the source's (M.SCHD-T66, ported from Sync-ToAzure.ps1's Copy-Rows and the
 /// full branch of Invoke-MemberPlan): the target is emptied, the source streamed in through SqlBulkCopy with identity
-/// values kept, and the target's identity reseeded to the source's last value. Used for the first run, a watermark
+/// values kept (a table with VECTOR columns through <see cref="VectorText"/>, so each value arrives exactly), and the
+/// target's identity reseeded to the source's last value. Used for the first run, a watermark
 /// older than the source's change retention and a newly tracked table. Foreign keys into or out of the table should
 /// be suspended by a <see cref="TargetConstraintGuard"/> around the copy; a system-versioned table needs its
 /// versioning suspended first (TemporalPairSync), because its period columns are written too.
@@ -59,6 +60,18 @@ public static class FullTableCopy
     private static long BulkCopy(SqlConnection source, SqlConnection target, CatalogTable table, DbSyncSettings settings)
     {
         var columns = table.CopyColumns;
+        if (table.VectorColumns.Count > 0)
+        {
+            // A VECTOR bulk-copied as SqlClient reads it is exact only when the client receives it natively; the
+            // server's own text form is not. Both go through the exact text and a stage instead.
+            var native = VectorText.NativeColumns(source, table, columns, settings);
+            var exact = $"{VectorText.Declare(columns.Where(c => !native.Contains(c.Name)))}" +
+                        $"SELECT {string.Join(", ", columns.Select(c => VectorText.Select(c, native)))} FROM {table.QName} AS t;";
+            using var vcmd = new SqlCommand(exact, source) { CommandTimeout = settings.CommandTimeoutSeconds };
+            using var vrd = vcmd.ExecuteReader();
+            return VectorText.CopyThroughStage(vrd, target, null, table, columns, native, settings);
+        }
+
         var select = $"SELECT {string.Join(", ", columns.Select(c => TableCatalog.Quote(c.Name)))} FROM {table.QName};";
         using var cmd = new SqlCommand(select, source) { CommandTimeout = settings.CommandTimeoutSeconds };
         using var rd = cmd.ExecuteReader(CommandBehavior.SequentialAccess);

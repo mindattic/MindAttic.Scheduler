@@ -97,7 +97,7 @@ public static class HashDiffTableSync
             long deleted = 0, inserted = 0;
             foreach (var r in plan!.Ranges)
                 foreach (var chunk in r.Delete.Chunk(settings.BulkBatchSize))
-                    deleted += Exec(target, tx, settings, $"DELETE t FROM {m.Table.QName} AS t WHERE {HashWhere(r.Where, m)};",
+                    deleted += Exec(target, tx, settings, $"{m.Prelude}DELETE t FROM {m.Table.QName} AS t WHERE {HashWhere(r.Where, m)};",
                         [.. RangeParams(m.RangeCols, r.Lo, r.Hi), HashJson(chunk)]);
             foreach (var r in plan!.Ranges)
                 foreach (var chunk in r.Insert.Chunk(settings.BulkBatchSize))
@@ -153,7 +153,7 @@ public static class HashDiffTableSync
         if (m.Strong)
         {
             var sums = new[] { 1, 8, 15, 22 }.Select(o => $"CONVERT(VARCHAR(60), SUM(CAST(CAST(SUBSTRING(x.h, {o}, 7) AS BIGINT) AS DECIMAL(38,0))))");
-            sql = $"SELECT COUNT_BIG(*), {string.Join(", ", sums)} FROM (SELECT {m.HashExpr} AS h FROM {src}) x";
+            sql = $"{m.Prelude}SELECT COUNT_BIG(*), {string.Join(", ", sums)} FROM (SELECT {m.HashExpr} AS h FROM {src}) x";
         }
         else sql = "SELECT COUNT_BIG(*)" + string.Concat(m.MediumAggs.Select(a => ", " + a)) + $" FROM {src}";
 
@@ -325,7 +325,7 @@ public static class HashDiffTableSync
     /// <summary>Each row hash (upper-case hex) in the range with how many rows have it (Get-HashCounts).</summary>
     private static Dictionary<string, int> HashCounts(SqlConnection c, Member m, string where, SqlParameter[] ps, DbSyncSettings settings)
     {
-        var sql = $"SELECT {m.HashExpr} FROM {m.Table.QName} AS t" + (where.Length > 0 ? $" WHERE {where}" : "");
+        var sql = $"{m.Prelude}SELECT {m.HashExpr} FROM {m.Table.QName} AS t" + (where.Length > 0 ? $" WHERE {where}" : "");
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
         using var cmd = Command(c, null, settings, sql, ps);
         using var rd = cmd.ExecuteReader();
@@ -346,6 +346,15 @@ public static class HashDiffTableSync
     /// <summary>Streams the source rows of <c>table AS t {from}</c> into the target table (Copy-Rows); returns how many.</summary>
     private static long CopyRows(SqlConnection source, SqlConnection target, SqlTransaction tx, Member m, string from, SqlParameter[] ps, DbSyncSettings settings)
     {
+        if (m.Table.VectorColumns.Count > 0)
+        {
+            var native = VectorText.NativeColumns(source, m.Table, m.Columns, settings);
+            using var vcmd = Command(source, null, settings,
+                $"{m.Prelude}SELECT {string.Join(", ", m.Columns.Select(c => VectorText.Select(c, native)))} FROM {m.Table.QName} AS t {from}", ps);
+            using var vrd = vcmd.ExecuteReader();
+            return VectorText.CopyThroughStage(vrd, target, tx, m.Table, m.Columns, native, settings);
+        }
+
         using var cmd = Command(source, null, settings, $"SELECT {string.Join(", ", m.Columns.Select(c => "t." + Q(c.Name)))} FROM {m.Table.QName} AS t {from}", ps);
         using var rd = cmd.ExecuteReader();
         using var bulk = new SqlBulkCopy(target, SqlBulkCopyOptions.KeepIdentity | SqlBulkCopyOptions.KeepNulls, tx)
@@ -387,6 +396,8 @@ public static class HashDiffTableSync
         public required CatalogTable Table { get; init; }
         public required CatalogTable TargetTable { get; init; }
         public required IReadOnlyList<CatalogColumn> Columns { get; init; }
+        /// <summary>Declarations every batch that uses <see cref="HashExpr"/> starts with (the VECTOR unit vectors).</summary>
+        public required string Prelude { get; init; }
         public required string HashExpr { get; init; }
         public required IReadOnlyList<string> MediumAggs { get; init; }
         public required bool Strong { get; init; }
@@ -402,8 +413,6 @@ public static class HashDiffTableSync
                 throw new InvalidOperationException($"{key} is not supported ({string.Join(", ", t.Unsupported)}).");
             if (t.CopyUnsupported.Count > 0)
                 throw new InvalidOperationException($"{key} has columns the sync cannot copy: {string.Join(", ", t.CopyUnsupported)}.");
-            if (t.VectorColumns.Count > 0)
-                throw new InvalidOperationException($"{key} has VECTOR columns, which the hashdiff sync does not copy: {string.Join(", ", t.VectorColumns.Select(c => c.Name))}.");
 
             var cols = t.CopyColumns;
             var wide = cols.Any(c => c.MaxLength == -1 || LobTypes.Contains(c.Type)) || cols.Sum(c => Math.Abs(c.MaxLength) + 9) > 7800;
@@ -424,9 +433,12 @@ public static class HashDiffTableSync
                         bin = $"(CAST(CAST(SQL_VARIANT_PROPERTY({q}, 'BaseType') AS NVARCHAR(128)) AS VARBINARY(MAX)) + CAST(CAST({q} AS VARBINARY(8000)) AS VARBINARY(MAX)))";
                         break;
                     case "image": bin = $"CAST({q} AS VARBINARY(MAX))"; special = false; break;
+                    case "vector": bin = $"CAST({VectorText.Expr(c)} AS VARBINARY(MAX))"; break;
                     default: bin = $"CAST({q} AS {bt})"; special = false; break;
                 }
-                if (FixedTypes.Contains(c.Type)) terms.Add(c.Nullable ? $"ISNULL(0x01 + {bin}, 0x00)" : bin);
+                // A VECTOR's exact text is bracketed, so it delimits itself; it is built once per row, not twice.
+                if (c.IsVector) terms.Add($"ISNULL({bin}, 0xFFFFFFFFFFFFFFFF)");
+                else if (FixedTypes.Contains(c.Type)) terms.Add(c.Nullable ? $"ISNULL(0x01 + {bin}, 0x00)" : bin);
                 else terms.Add($"ISNULL(CAST(DATALENGTH({(special ? bin : q)}) AS BINARY(8)) + {bin}, 0xFFFFFFFFFFFFFFFF)");
 
                 switch (c.Type)
@@ -473,6 +485,7 @@ public static class HashDiffTableSync
                 Table = t,
                 TargetTable = tt,
                 Columns = cols,
+                Prelude = VectorText.Declare(cols),
                 HashExpr = $"HASHBYTES('SHA2_256', CAST(0x AS {bt}) + {string.Join(" + ", terms)})",
                 MediumAggs = aggs,
                 Strong = Math.Max(t.MB, tt.MB) <= settings.StrongHashMaxMB,
