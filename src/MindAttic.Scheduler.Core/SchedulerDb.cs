@@ -16,7 +16,7 @@ public sealed class SchedulerDb
     public const string DatabaseName = "MindAttic.Scheduler";
 
     /// <summary>The schema version <see cref="Migrate"/> brings the database to.</summary>
-    public const int SchemaVersion = 1;
+    public const int SchemaVersion = 2;
 
     /// <summary>The fallback: LocalDB, Windows authentication. LocalDB starts on demand.</summary>
     public const string LocalDbConnectionString =
@@ -157,6 +157,31 @@ public sealed class SchedulerDb
         """
         IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_JobRun_JobName_StartedAt' AND object_id = OBJECT_ID(N'dbo.JobRun'))
         CREATE INDEX IX_JobRun_JobName_StartedAt ON dbo.JobRun (JobName, StartedAt)
+        """,
+        """
+        IF OBJECT_ID(N'dbo.DbSyncWatermark') IS NULL
+        CREATE TABLE dbo.DbSyncWatermark (
+            DatabaseName nvarchar(128) NOT NULL,
+            TargetKey nvarchar(100) NOT NULL,
+            LastVersion bigint NULL,
+            LastStartUtc datetime2 NULL,
+            LastEndUtc datetime2 NULL,
+            LastOutcome varchar(16) NOT NULL CONSTRAINT CK_DbSyncWatermark_LastOutcome
+                CHECK (LastOutcome IN ('succeeded', 'failed')),
+            LastMessage nvarchar(max) NULL,
+            CONSTRAINT PK_DbSyncWatermark PRIMARY KEY (DatabaseName, TargetKey))
+        """,
+        """
+        IF OBJECT_ID(N'dbo.DbSyncTableState') IS NULL
+        CREATE TABLE dbo.DbSyncTableState (
+            DatabaseName nvarchar(128) NOT NULL,
+            TargetKey nvarchar(100) NOT NULL,
+            TableName nvarchar(200) NOT NULL,
+            Method varchar(16) NOT NULL CONSTRAINT CK_DbSyncTableState_Method
+                CHECK (Method IN ('tracked', 'hashdiff', 'temporal')),
+            LastVersion bigint NULL,
+            StateJson nvarchar(max) NULL,
+            CONSTRAINT PK_DbSyncTableState PRIMARY KEY (DatabaseName, TargetKey, TableName))
         """,
     ];
 }
