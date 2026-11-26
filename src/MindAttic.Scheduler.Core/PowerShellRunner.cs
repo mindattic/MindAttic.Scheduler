@@ -6,10 +6,13 @@ namespace MindAttic.Scheduler.Core;
 /// scheduler.ps1/install.ps1 instead of reimplementing their Task Scheduler logic in C#.</summary>
 public static class PowerShellRunner
 {
+    /// <summary>Windows PowerShell on Windows, PowerShell 7 (<c>pwsh</c>) elsewhere (M.SCHD-T58).</summary>
+    public static string Executable => OperatingSystem.IsWindows() ? "powershell.exe" : "pwsh";
+
     /// <summary>Runs <paramref name="scriptPath"/> with <paramref name="arguments"/>, waits for it to exit.</summary>
     public static PowerShellResult Run(string scriptPath, params string[] arguments)
     {
-        var psi = new ProcessStartInfo("powershell.exe")
+        var psi = new ProcessStartInfo(Executable)
         {
             UseShellExecute = false,
             RedirectStandardOutput = true,
@@ -24,7 +27,7 @@ public static class PowerShellRunner
         foreach (var a in arguments) psi.ArgumentList.Add(a);
 
         using var process = Process.Start(psi)
-            ?? throw new InvalidOperationException($"Could not start powershell.exe for '{scriptPath}'.");
+            ?? throw new InvalidOperationException($"Could not start {Executable} for '{scriptPath}'.");
         // Drain stderr concurrently: reading stdout to the end first deadlocks once the script
         // writes more to stderr than its pipe buffer holds (it blocks on stderr, we block on stdout).
         var stdErrTask = process.StandardError.ReadToEndAsync();

@@ -1,7 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- M.SCHD-T58: cross-platform (a Linux host can run the CLI and the run log); only the WPF
+         dashboard stays net10.0-windows. Task Scheduler work still goes through PowerShell scripts. -->
+    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>MindAttic.Scheduler.Core</RootNamespace>
   </PropertyGroup>
 

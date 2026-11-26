@@ -130,7 +130,16 @@ row left `running` whose process is gone is marked `abandoned` by the next run o
 
 1. the `MINDATTIC_SCHEDULER_SQL` environment variable;
 2. `%APPDATA%\MindAttic\MindAttic.Scheduler\database.json`: `{"SqlServer": "<connection string>"}`;
-3. local `(localdb)\MSSQLLocalDB`, `Database=MindAttic.Scheduler`, Windows auth.
+3. local `(localdb)\MSSQLLocalDB`, `Database=MindAttic.Scheduler`, Windows auth (Windows only;
+   elsewhere a missing connection string is an error).
+
+Any SQL Server works, so the run log can live on the Hetzner SQL Server instead of LocalDB, e.g.
+`{"SqlServer": "Server=<host>,1433;Database=MindAttic.Scheduler;User ID=<login>;Password=<password>;Encrypt=true;TrustServerCertificate=true"}`.
+`db migrate` creates the database there when it is missing (the login must be able to connect to
+`master`); only Azure SQL needs it made beforehand.
+
+The CLI and Core target `net10.0` (M.SCHD-T58), so they build and run on Linux too (Task Scheduler
+work there goes through `pwsh`); only the WPF dashboard is `net10.0-windows`.
 
 ### CLI verbs
 

@@ -5,7 +5,9 @@ namespace MindAttic.Scheduler.Core;
 
 /// <summary>
 /// The MindAttic.Scheduler database (M.SCHD-T42): where every job run is recorded. LocalDB in
-/// development, Azure SQL in production. <see cref="Migrate"/> is the only code that runs DDL.
+/// development; in production any SQL Server reached by a connection string (M.SCHD-T58: a
+/// Hetzner-hosted SQL Server with SQL authentication, or Azure SQL). <see cref="Migrate"/> is the
+/// only code that runs DDL.
 /// </summary>
 public sealed class SchedulerDb
 {
@@ -39,8 +41,13 @@ public sealed class SchedulerDb
     /// <summary>
     /// The connection the machine is configured for: <see cref="EnvVar"/>, else
     /// <c>%APPDATA%\MindAttic\MindAttic.Scheduler\database.json</c> (<c>{"SqlServer": "..."}</c>), else LocalDB.
+    /// LocalDB exists only on Windows: elsewhere (M.SCHD-T58) a missing connection string throws
+    /// <see cref="InvalidOperationException"/> naming both places to set one.
     /// </summary>
-    public static SchedulerDb FromEnvironment(string? databaseConfigPath = null)
+    public static SchedulerDb FromEnvironment(string? databaseConfigPath = null) =>
+        FromEnvironment(databaseConfigPath, OperatingSystem.IsWindows());
+
+    internal static SchedulerDb FromEnvironment(string? databaseConfigPath, bool localDbAvailable)
     {
         if (Environment.GetEnvironmentVariable(EnvVar) is { Length: > 0 } env) return new SchedulerDb(env, "env");
         var path = databaseConfigPath ?? SchedulerPaths.DatabaseConfig;
@@ -55,6 +62,10 @@ public sealed class SchedulerDb
             }
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { }
+        if (!localDbAvailable)
+            throw new InvalidOperationException(
+                $"No Scheduler database is configured and LocalDB is Windows-only: set {EnvVar} or put " +
+                $"{{\"SqlServer\": \"<connection string>\"}} in {path}.");
         return new SchedulerDb(LocalDbConnectionString, "localdb");
     }
 
@@ -73,6 +84,24 @@ public sealed class SchedulerDb
     public bool IsLocalDb =>
         ConnectionString.Contains("(localdb)", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// True when the connection points at Azure SQL, where the database is made by
+    /// deploy-azure-db.ps1 (a logical server's master can't be used to create it here).
+    /// </summary>
+    public bool IsAzureSql
+    {
+        get
+        {
+            try
+            {
+                var host = new SqlConnectionStringBuilder(ConnectionString).DataSource;
+                return host.Contains(".database.windows.net", StringComparison.OrdinalIgnoreCase)
+                    || host.Contains(".database.azure.com", StringComparison.OrdinalIgnoreCase);
+            }
+            catch (ArgumentException) { return false; }
+        }
+    }
+
     /// <summary>Opens a connection.</summary>
     public SqlConnection Open()
     {
@@ -82,12 +111,13 @@ public sealed class SchedulerDb
     }
 
     /// <summary>
-    /// Creates the schema if it isn't there (idempotent). On LocalDB the database itself is created
-    /// first; on Azure it is made by deploy-azure-db.ps1.
+    /// Creates the schema if it isn't there (idempotent). On LocalDB or any other SQL Server (a
+    /// Hetzner host, M.SCHD-T58) the database itself is created first when missing, which needs a
+    /// login that can connect to master; on Azure SQL it is made by deploy-azure-db.ps1.
     /// </summary>
     public void Migrate()
     {
-        if (IsLocalDb) EnsureLocalDatabase();
+        if (!IsAzureSql) EnsureDatabase();
         using var c = Open();
         foreach (var batch in SchemaBatches)
         {
@@ -114,7 +144,7 @@ public sealed class SchedulerDb
         return cmd.ExecuteScalar() is int i ? i : null;
     }
 
-    private void EnsureLocalDatabase()
+    private void EnsureDatabase()
     {
         var b = new SqlConnectionStringBuilder(ConnectionString);
         var name = string.IsNullOrEmpty(b.InitialCatalog) ? DatabaseName : b.InitialCatalog;
