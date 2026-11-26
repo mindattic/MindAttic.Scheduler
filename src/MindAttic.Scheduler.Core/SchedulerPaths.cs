@@ -38,4 +38,15 @@ public static class SchedulerPaths
     /// <summary><c>%APPDATA%\MindAttic\MindAttic.Scheduler\database.json</c>: <c>{"SqlServer": "..."}</c>.</summary>
     public static string DatabaseConfig =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MindAttic", "MindAttic.Scheduler", "database.json");
+
+    /// <summary><c>%APPDATA%\MindAttic\MindAttic.Scheduler\dbsync.json</c>: the DB sync job's databases and tunables (M.SCHD-T61).</summary>
+    public static string DbSyncConfig =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MindAttic", "MindAttic.Scheduler", "dbsync.json");
+
+    /// <summary>The DB sync job's own log, in <see cref="LocalState"/>.</summary>
+    public static string DbSyncLog => Path.Combine(LocalState, "dbsync.log");
+
+    /// <summary><c>%APPDATA%\MindAttic\Database\providers.json</c>: the named service principals a <c>{providerRef}</c> target resolves through.</summary>
+    public static string DatabaseProviders =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MindAttic", "Database", "providers.json");
 }

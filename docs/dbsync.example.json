@@ -1,0 +1,15 @@
+{
+  "$comment": "Copy to %APPDATA%\\MindAttic\\MindAttic.Scheduler\\dbsync.json. Every field is optional: the numbers below are the defaults, and databases merge into the built-in list by name (see DbSyncSettings.DefaultDatabases), so an entry only gives what it changes. targetConnection is a full SQL Server connection string, or {ProviderName} to sign in as that service principal from %APPDATA%\\MindAttic\\Database\\providers.json (Server, ClientId, ClientSecret) with the database named as here. A database with no targetConnection is reported 'not configured' and skipped.",
+  "changeRetentionDays": 14,
+  "commandTimeoutSeconds": 600,
+  "connectTimeoutSeconds": 30,
+  "bulkBatchSize": 5000,
+  "maxParallelDatabases": 2,
+  "hashDiffRangeRows": 100000,
+  "strongHashMaxMB": 1024,
+  "databases": [
+    { "name": "Prose", "targetConnection": "{AzureSql}" },
+    { "name": "MindAttic.Tickets", "sourceInstance": "localhost", "targetConnection": "Server=remote-host;Database=MindAttic.Tickets;User Id=sync;Password=...;TrustServerCertificate=true" },
+    { "name": "IdiotProof_Research_GAP", "enabled": false }
+  ]
+}
