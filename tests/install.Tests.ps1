@@ -132,7 +132,7 @@ Describe 'jobs.json' {
     It 're-arranges the night at a pinned 23:30, capped at 30 minutes' {
         $job = Read-JobManifest (Join-Path $PSScriptRoot '..\jobs.json') | Where-Object Name -eq 'Scheduler.Arrange'
         $job | Should -Not -BeNullOrEmpty
-        $job.Command | Should -Be '"C:\Apps\MindAttic.Scheduler\mindattic-scheduler.exe" arrange'
+        $job.Command | Should -Be '"R:\MindAttic\Apps\MindAttic.Scheduler\Release\mindattic-scheduler.exe" arrange'
         $job.IsAuto | Should -BeFalse
         @($job.Schedule)[0].daily | Should -Be '23:30'
         $job.TimeLimit | Should -Be ([TimeSpan]::FromMinutes(30))

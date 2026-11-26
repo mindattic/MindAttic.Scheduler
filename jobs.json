@@ -151,8 +151,8 @@
     {
       "name": "Database.SyncToRemote",
       "description": "Syncs the local SQL Server databases to their remote copies (M.SCHD-T60; the Hetzner host once it exists): mindattic-scheduler dbsync. Change Tracking watermark captured at each run's START, so rows written during a run are caught by the next; unchanged databases are skipped; the first run (and a missing or empty target, whose schema is bootstrapped) copies everything. Never alters a schema. DISABLED until the remote host is up and dbsync.json names its targets (README, Database sync). Overnight, at the slot Scheduler.Arrange gives it. Log: %LOCALAPPDATA%\\MindAttic\\Scheduler\\dbsync.log.",
-      "command": "\"C:\\Apps\\MindAttic.Scheduler\\mindattic-scheduler.exe\" dbsync",
-      "workingDirectory": "C:\\Apps\\MindAttic.Scheduler",
+      "command": "\"R:\\MindAttic\\Apps\\MindAttic.Scheduler\\Release\\mindattic-scheduler.exe\" dbsync",
+      "workingDirectory": "R:\\MindAttic\\Apps\\MindAttic.Scheduler\\Release",
       "schedule": { "daily": "auto" },
       "estimate": "00:30:00",
       "timeLimit": "06:00:00",
@@ -188,7 +188,7 @@
     {
       "name": "Scheduler.Arrange",
       "description": "Arranges tonight's overnight jobs (M.SCHD-T42): mindattic-scheduler arrange keeps the \"daily\": \"auto\" slots in %LOCALAPPDATA%\\MindAttic\\Scheduler\\arrangement.json, re-placing them from each job's measured run time (else its estimate) only when something is wrong - a new or removed job, two starts colliding, or a predicted finish after 08:00 - then reruns install.ps1 so Task Scheduler has the new times. Pinned at 23:30, before the window it arranges.",
-      "command": "\"C:\\Apps\\MindAttic.Scheduler\\mindattic-scheduler.exe\" arrange",
+      "command": "\"R:\\MindAttic\\Apps\\MindAttic.Scheduler\\Release\\mindattic-scheduler.exe\" arrange",
       "schedule": { "daily": "23:30" },
       "timeLimit": "00:30:00"
     }

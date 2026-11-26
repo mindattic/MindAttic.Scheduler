@@ -70,8 +70,8 @@ Describe 'ConvertFrom-ActionCommand' {
         ConvertFrom-ActionCommand 'C:\Windows\System32\conhost.exe' '--headless cmd.exe /c exit 0' | Should -Be 'cmd.exe /c exit 0'
     }
     It 'drops the run wrapper, with or without --exclusive and a quoted name' {
-        ConvertFrom-ActionCommand 'conhost.exe' '--headless "C:\Apps\MindAttic.Scheduler\mindattic-scheduler.exe" run Backup --exclusive -- "C:\x y\b.exe" --keep 3' | Should -Be '"C:\x y\b.exe" --keep 3'
-        ConvertFrom-ActionCommand 'conhost.exe' '--headless "C:\Apps\MindAttic.Scheduler\mindattic-scheduler.exe" run "Two Words" -- cmd.exe /c exit 0' | Should -Be 'cmd.exe /c exit 0'
+        ConvertFrom-ActionCommand 'conhost.exe' '--headless "R:\MindAttic\Apps\MindAttic.Scheduler\Release\mindattic-scheduler.exe" run Backup --exclusive -- "C:\x y\b.exe" --keep 3' | Should -Be '"C:\x y\b.exe" --keep 3'
+        ConvertFrom-ActionCommand 'conhost.exe' '--headless "R:\MindAttic\Apps\MindAttic.Scheduler\Release\mindattic-scheduler.exe" run "Two Words" -- cmd.exe /c exit 0' | Should -Be 'cmd.exe /c exit 0'
     }
     It 'quotes a directly-started GUI program with a space in its path' {
         ConvertFrom-ActionCommand 'C:\A B\x.exe' '--daemon' | Should -Be '"C:\A B\x.exe" --daemon'

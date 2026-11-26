@@ -44,7 +44,7 @@
 
 .PARAMETER CliPath
   mindattic-scheduler.exe, the run wrapper and arranger. Defaults to %MINDATTIC_SCHEDULER_CLI%,
-  else C:\Apps\MindAttic.Scheduler\mindattic-scheduler.exe.
+  else R:\MindAttic\Apps\MindAttic.Scheduler\Release\mindattic-scheduler.exe.
 
 .EXAMPLE
   .\install.ps1 -WhatIf     # show what would change, touch nothing
@@ -68,7 +68,7 @@ function Get-DefaultArrangementPath {
 
 function Get-DefaultCliPath {
     if ($env:MINDATTIC_SCHEDULER_CLI) { $env:MINDATTIC_SCHEDULER_CLI }
-    else { 'C:\Apps\MindAttic.Scheduler\mindattic-scheduler.exe' }
+    else { 'R:\MindAttic\Apps\MindAttic.Scheduler\Release\mindattic-scheduler.exe' }
 }
 
 function Test-AutoEntry($Entry) {
@@ -403,7 +403,7 @@ function New-JobAction {
         }
         elseif ($tracked -and -not $script:CliMissingWarned.ContainsKey($CliPath)) {
             $script:CliMissingWarned[$CliPath] = $true
-            Write-Warning "The run wrapper $CliPath isn't installed, so jobs run unwrapped (no run log, no overnight lock). Publish it (release.ps1) and rerun install.ps1."
+            Write-Warning "The run wrapper $CliPath isn't installed, so jobs run unwrapped (no run log, no overnight lock). Deploy it (run.ps1 -Redeploy) and rerun install.ps1."
         }
     }
     $a = @{ Execute = $execute }

@@ -5,8 +5,8 @@
     <!-- M.SCHD-T58: cross-platform, like Core; only the WPF dashboard is net10.0-windows. -->
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>MindAttic.Scheduler.Cli</RootNamespace>
-    <!-- M.SCHD-T42: the run wrapper, the overnight arranger and the run log, published by release.ps1
-         next to the dashboard as C:\Apps\MindAttic.Scheduler\mindattic-scheduler.exe. -->
+    <!-- M.SCHD-T42: the run wrapper, the overnight arranger and the run log, deployed by run.ps1
+         next to the dashboard as R:\MindAttic\Apps\MindAttic.Scheduler\Release\mindattic-scheduler.exe. -->
     <AssemblyName>mindattic-scheduler</AssemblyName>
     <!-- HOUSE-LAW-1: whole-number versions only; bump the major. -->
     <Version>1.0.0</Version>

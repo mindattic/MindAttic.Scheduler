@@ -28,6 +28,14 @@ It is idempotent: rerun it after every edit to `jobs.json`.
 .\install.ps1           # apply
 ```
 
+## Run and deploy
+
+`run.bat` (or `run.ps1`) opens the MindAttic run menu: `1` Redeploy builds the jobs dashboard
+(`MindAttic.Scheduler.Desktop.exe`) and the `mindattic-scheduler` CLI into
+`R:\MindAttic\Apps\MindAttic.Scheduler\Debug` and `\Release`, `2` Run Debug and `3` Run Release start the dashboard.
+The Release folder is the one the jobs use: install.ps1 and jobs.json run its `mindattic-scheduler.exe`. A redeploy
+refuses while a job is running through that CLI, rather than stopping it mid-run; run it again once the job is done.
+
 ## jobs.json
 
 The `jobs` list is required: a manifest without it is refused rather than read as "no jobs" (which
@@ -116,7 +124,8 @@ conhost.exe --headless "<cli>" run <job> [--exclusive] -- <command>
 ```
 
 where `<cli>` is `mindattic-scheduler.exe`: `%MINDATTIC_SCHEDULER_CLI%` if set, else
-`C:\Apps\MindAttic.Scheduler\mindattic-scheduler.exe` (published by `release.ps1`). It records a
+`R:\MindAttic\Apps\MindAttic.Scheduler\Release\mindattic-scheduler.exe` (deployed by `run.ps1 -Redeploy`, see
+[Run and deploy](#run-and-deploy)). It records a
 `running` row, takes the overnight lock if `--exclusive`, runs the command on the same hidden
 console, records the end time and exit code, and exits with the command's own exit code, so Task
 Scheduler's Last Run Result stays accurate. If the CLI isn't installed, install.ps1 registers the

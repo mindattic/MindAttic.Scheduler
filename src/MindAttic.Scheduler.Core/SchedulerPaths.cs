@@ -12,8 +12,8 @@ public static class SchedulerPaths
     /// <summary>The dev checkout, the default home of jobs.json and install.ps1.</summary>
     public const string DefaultRepo = @"D:\Projects\MindAttic\MindAttic.Scheduler";
 
-    /// <summary>The published CLI, next to the dashboard (release.ps1).</summary>
-    public const string DefaultCliPath = @"C:\Apps\MindAttic.Scheduler\mindattic-scheduler.exe";
+    /// <summary>The published CLI, next to the dashboard (run.ps1 -Redeploy).</summary>
+    public const string DefaultCliPath = @"R:\MindAttic\Apps\MindAttic.Scheduler\Release\mindattic-scheduler.exe";
 
     /// <summary>The repo checkout: <see cref="RepoEnvVar"/>, else <see cref="DefaultRepo"/>.</summary>
     public static string Repo =>
