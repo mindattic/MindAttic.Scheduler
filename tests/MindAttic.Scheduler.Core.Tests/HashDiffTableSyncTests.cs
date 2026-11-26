@@ -30,13 +30,6 @@ public sealed class HashDiffTableSyncTests
     private readonly List<string> databases = [];
     private DbSyncSettings settings = new() { BulkBatchSize = 2, CommandTimeoutSeconds = 60 };
 
-    private static bool LocalDbInstalled()
-    {
-        var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft SQL Server");
-        return Directory.Exists(root) &&
-            Directory.EnumerateFiles(root, "SqlLocalDB.exe", SearchOption.AllDirectories).Any();
-    }
-
     private static string ConnectionString(string db) =>
         $@"Server=(localdb)\MSSQLLocalDB;Database={db};Integrated Security=true;TrustServerCertificate=true;Connect Timeout=30";
 
@@ -89,7 +82,7 @@ public sealed class HashDiffTableSyncTests
     [SetUp]
     public void SetUp()
     {
-        if (!LocalDbInstalled()) Assert.Ignore("LocalDB (SqlLocalDB.exe) is not installed on this machine.");
+        if (!LocalDb.Installed()) Assert.Ignore("LocalDB (SqlLocalDB.exe) is not installed on this machine.");
     }
 
     [TearDown]

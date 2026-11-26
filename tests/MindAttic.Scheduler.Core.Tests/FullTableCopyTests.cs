@@ -19,13 +19,6 @@ public sealed class FullTableCopyTests
     private readonly List<string> databases = [];
     private readonly DbSyncSettings settings = new() { BulkBatchSize = 2 };
 
-    private static bool LocalDbInstalled()
-    {
-        var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft SQL Server");
-        return Directory.Exists(root) &&
-            Directory.EnumerateFiles(root, "SqlLocalDB.exe", SearchOption.AllDirectories).Any();
-    }
-
     private static SqlConnection Open(string db)
     {
         var c = new SqlConnection($@"Server=(localdb)\MSSQLLocalDB;Database={db};Integrated Security=true;TrustServerCertificate=true;Connect Timeout=30");
@@ -78,7 +71,7 @@ public sealed class FullTableCopyTests
     [SetUp]
     public void SetUp()
     {
-        if (!LocalDbInstalled()) Assert.Ignore("LocalDB (SqlLocalDB.exe) is not installed on this machine.");
+        if (!LocalDb.Installed()) Assert.Ignore("LocalDB (SqlLocalDB.exe) is not installed on this machine.");
     }
 
     [TearDown]

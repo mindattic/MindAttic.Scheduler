@@ -15,17 +15,10 @@ public sealed class WatermarkStoreTests
 
     private SchedulerDb Db() => new(ConnectionString, "test");
 
-    private static bool LocalDbInstalled()
-    {
-        var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft SQL Server");
-        return Directory.Exists(root) &&
-            Directory.EnumerateFiles(root, "SqlLocalDB.exe", SearchOption.AllDirectories).Any();
-    }
-
     [SetUp]
     public void SetUp()
     {
-        if (!LocalDbInstalled()) Assert.Ignore("LocalDB (SqlLocalDB.exe) is not installed on this machine.");
+        if (!LocalDb.Installed()) Assert.Ignore("LocalDB (SqlLocalDB.exe) is not installed on this machine.");
         dbName = $"MindAttic.Scheduler.Tests.{Guid.NewGuid():N}";
     }
 

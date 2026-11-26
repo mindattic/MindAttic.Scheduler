@@ -16,20 +16,10 @@ public sealed class RunLogTests
 
     private SchedulerDb Db() => new(ConnectionString, "test");
 
-    // IgnoreInaccessible: a full SQL Server instance installed alongside LocalDB has folders a normal
-    // user can't list (MSSQL16.MSSQLSERVER\MSSQL\Backup), and SearchOption.AllDirectories throws on them.
-    private static bool LocalDbInstalled()
-    {
-        var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft SQL Server");
-        return Directory.Exists(root) &&
-            Directory.EnumerateFiles(root, "SqlLocalDB.exe",
-                new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true }).Any();
-    }
-
     [SetUp]
     public void SetUp()
     {
-        if (!LocalDbInstalled()) Assert.Ignore("LocalDB (SqlLocalDB.exe) is not installed on this machine.");
+        if (!LocalDb.Installed()) Assert.Ignore("LocalDB (SqlLocalDB.exe) is not installed on this machine.");
         dbName = $"MindAttic.Scheduler.Tests.{Guid.NewGuid():N}";
         spool = Path.Combine(Path.GetTempPath(), $"scheduler-spool-{Guid.NewGuid():N}.jsonl");
     }
