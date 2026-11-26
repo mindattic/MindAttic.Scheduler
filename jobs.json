@@ -136,7 +136,17 @@
       "workingDirectory": "D:\\Projects\\MindAttic\\docs\\ops\\azure-migration",
       "schedule": { "daily": "auto" },
       "estimate": "00:20:00",
-      "timeLimit": "02:00:00"
+      "timeLimit": "02:00:00",
+      "enabled": false
+    },
+    {
+      "name": "Sql.BackupLocalNightly",
+      "description": "Local SQL Server backup, nightly (M.SCHD-T73; replaces the Azure backups since the databases moved back to this PC, MAT-T255): native BACKUP DATABASE WITH CHECKSUM (compressed where the edition allows), then RESTORE VERIFYONLY, of every online read-write database on LocalDB and the full local SQL Server, to R:\\Backup\\MindAttic\\sql\\<instance>\\<db>. Keeps a trailing 7 days, never fewer than the newest per database. Frozen *_Local_<date> copies and scratch test databases are skipped. Overnight, at the slot Scheduler.Arrange gives it. Logs: R:\\Backup\\MindAttic\\sql\\logs.",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\MindAttic.Scheduler\\scripts\\Backup-LocalSql.ps1\" -KeepDays 7",
+      "workingDirectory": "D:\\Projects\\MindAttic\\MindAttic.Scheduler\\scripts",
+      "schedule": { "daily": "auto" },
+      "estimate": "01:00:00",
+      "timeLimit": "04:00:00"
     },
     {
       "name": "Prose.GLMZ.Wiki.Sync",
@@ -153,7 +163,8 @@
       "workingDirectory": "D:\\Projects\\MindAttic\\docs\\ops\\azure-migration",
       "schedule": { "daily": "auto" },
       "estimate": "01:00:00",
-      "timeLimit": "08:00:00"
+      "timeLimit": "08:00:00",
+      "enabled": false
     },
     {
       "name": "Azure.RestoreDrill",
@@ -161,7 +172,8 @@
       "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\docs\\ops\\azure-migration\\Test-BackupRestore.ps1\" -AlwaysOn -From Ftp -EveryDays 28",
       "workingDirectory": "D:\\Projects\\MindAttic\\docs\\ops\\azure-migration",
       "schedule": { "daily": "06:30", "daysOfWeek": ["Sun"] },
-      "timeLimit": "02:00:00"
+      "timeLimit": "02:00:00",
+      "enabled": false
     },
     {
       "name": "Scheduler.Arrange",
