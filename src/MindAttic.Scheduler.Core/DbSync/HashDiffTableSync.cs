@@ -109,6 +109,15 @@ public static class HashDiffTableSync
     }
 
     /// <summary>
+    /// The cheap verdict alone, for a run deciding whether to skip a database: why <paramref name="tableKey"/> is
+    /// unchanged since <paramref name="previous"/> without a scan, or null when it would have to be fingerprinted.
+    /// Reads only the source.
+    /// </summary>
+    public static string? Unchanged(SqlConnection source, TableCatalog sourceCatalog, TableCatalog targetCatalog,
+        string tableKey, DbSyncTableState? previous, DbSyncSettings settings) =>
+        CheapVerdict(source, Member.Create(sourceCatalog, targetCatalog, tableKey, settings), previous, settings);
+
+    /// <summary>
     /// "Unchanged" without a scan (Get-CheapVerdict): the catalog row counts agree and the source's write statistics,
     /// which cover the whole interval because the engine has not restarted and the database does not auto-close, show no
     /// insert, update or delete since the last successful sync began. Null when the table has to be fingerprinted.
