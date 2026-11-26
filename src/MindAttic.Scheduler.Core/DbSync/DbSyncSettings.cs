@@ -78,6 +78,41 @@ public sealed record DbSyncSettings
     /// <summary>Tables up to this size get the row-by-row strong hash; larger ones the cheaper range checksum.</summary>
     public int StrongHashMaxMB { get; init; } = 1024;
 
+    /// <summary>SqlPackage, which creates a missing or table-less target's schema from its source (M.SCHD-T72).</summary>
+    public string SqlPackagePath { get; init; } = DefaultSqlPackagePath;
+
+    /// <summary>How long each SqlPackage step of a schema bootstrap may take.</summary>
+    public int SchemaBootstrapTimeoutSeconds { get; init; } = 1800;
+
+    /// <summary>The <c>/p:</c> properties of the bootstrap's Extract: schema only, no logins or permissions.</summary>
+    public IReadOnlyList<string> SchemaExtractProperties { get; init; } = DefaultSchemaExtractProperties;
+
+    /// <summary>The <c>/p:</c> properties of the bootstrap's Publish: never drops anything, no users, logins or permissions.</summary>
+    public IReadOnlyList<string> SchemaPublishProperties { get; init; } = DefaultSchemaPublishProperties;
+
+    /// <summary><c>%USERPROFILE%\.dotnet\tools\sqlpackage.exe</c>, where <c>dotnet tool install -g microsoft.sqlpackage</c> puts it.</summary>
+    public static string DefaultSqlPackagePath { get; } =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".dotnet", "tools", "sqlpackage.exe");
+
+    public static IReadOnlyList<string> DefaultSchemaExtractProperties { get; } =
+    [
+        "/p:ExtractAllTableData=False",
+        "/p:ExtractReferencedServerScopedElements=False",
+        "/p:IgnoreUserLoginMappings=True",
+        "/p:IgnorePermissions=True",
+    ];
+
+    public static IReadOnlyList<string> DefaultSchemaPublishProperties { get; } =
+    [
+        "/p:CreateNewDatabase=False",
+        "/p:DropObjectsNotInSource=False",
+        "/p:BlockOnPossibleDataLoss=True",
+        "/p:AllowIncompatiblePlatform=True",
+        "/p:IgnorePermissions=True",
+        "/p:IgnoreRoleMembership=True",
+        "/p:ExcludeObjectTypes=Users;Logins;RoleMembership;Permissions;ServerRoleMembership;ServerRoles",
+    ];
+
     /// <summary>The databases, in order.</summary>
     public IReadOnlyList<DbSyncDatabase> Databases { get; init; } = DefaultDatabases;
 
@@ -144,6 +179,12 @@ public sealed record DbSyncSettings
             MaxParallelDatabases = Positive(path, "maxParallelDatabases", dto.MaxParallelDatabases, defaults.MaxParallelDatabases),
             HashDiffRangeRows = Positive(path, "hashDiffRangeRows", dto.HashDiffRangeRows, defaults.HashDiffRangeRows),
             StrongHashMaxMB = Positive(path, "strongHashMaxMB", dto.StrongHashMaxMB, defaults.StrongHashMaxMB),
+            SqlPackagePath = dto.SqlPackagePath is null ? defaults.SqlPackagePath
+                : !string.IsNullOrWhiteSpace(dto.SqlPackagePath) ? Environment.ExpandEnvironmentVariables(dto.SqlPackagePath.Trim())
+                : throw new InvalidDataException($"{path}: sqlPackagePath is empty."),
+            SchemaBootstrapTimeoutSeconds = Positive(path, "schemaBootstrapTimeoutSeconds", dto.SchemaBootstrapTimeoutSeconds, defaults.SchemaBootstrapTimeoutSeconds),
+            SchemaExtractProperties = Properties(path, "schemaExtractProperties", dto.SchemaExtractProperties, defaults.SchemaExtractProperties),
+            SchemaPublishProperties = Properties(path, "schemaPublishProperties", dto.SchemaPublishProperties, defaults.SchemaPublishProperties),
         };
 
         var merged = DefaultDatabases.ToList();
@@ -242,6 +283,15 @@ public sealed record DbSyncSettings
         : value > 0 ? value.Value
         : throw new InvalidDataException($"{path}: {name} must be a positive whole number, not {value}.");
 
+    private static IReadOnlyList<string> Properties(string path, string name, List<string?>? value, IReadOnlyList<string> fallback)
+    {
+        if (value is null) return fallback;
+        foreach (var p in value)
+            if (p is null || !p.TrimStart().StartsWith("/p:", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException($"{path}: every {name} entry must be a SqlPackage /p:Name=Value property, not '{p}'.");
+        return value.Select(p => p!.Trim()).ToList();
+    }
+
     private static string? NullIfBlank(string s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
     private sealed class FileDto
@@ -253,6 +303,10 @@ public sealed record DbSyncSettings
         public int? MaxParallelDatabases { get; set; }
         public int? HashDiffRangeRows { get; set; }
         public int? StrongHashMaxMB { get; set; }
+        public string? SqlPackagePath { get; set; }
+        public int? SchemaBootstrapTimeoutSeconds { get; set; }
+        public List<string?>? SchemaExtractProperties { get; set; }
+        public List<string?>? SchemaPublishProperties { get; set; }
         public List<DatabaseDto?>? Databases { get; set; }
     }
 

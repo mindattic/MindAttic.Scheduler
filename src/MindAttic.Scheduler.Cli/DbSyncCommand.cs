@@ -104,6 +104,7 @@ internal static class DbSyncCommand
             DatabaseSyncOutcome.Failed => $"failed: {reason}",
             DatabaseSyncOutcome.Unchanged => r.DryRun ? "unchanged (dry run)" : "unchanged",
             _ when r.DryRun => reason ?? $"dry run: {r.Tables.Count} table(s) would sync",
+            _ when r.Bootstrapped => $"bootstrapped schema, synced {r.Tables.Count} tables",
             _ => $"synced {r.Tables.Count} tables",
         };
     }
@@ -136,6 +137,7 @@ internal static class DbSyncCommand
             status = l.Status,
             outcome = l.Result is { } r ? (r.Outcome == DatabaseSyncOutcome.Failed && r.SchemaMismatch ? "schemaMismatch" : r.Outcome.ToString().ToLowerInvariant()) : l.Status,
             target = l.Result?.Target,
+            bootstrapped = l.Result?.Bootstrapped,
             startVersion = l.Result?.StartVersion,
             startUtc = l.Result?.StartUtc,
             message = l.Result?.Message,

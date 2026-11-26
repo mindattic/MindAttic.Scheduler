@@ -36,10 +36,18 @@ public sealed record DatabaseSyncResult(
 
     /// <summary>True when this was a dry run: <see cref="Tables"/> is the plan and nothing was written to either side.</summary>
     public bool DryRun { get; init; }
+
+    /// <summary>
+    /// True when the target was missing or had no tables, so its schema was created from the source before the full copy
+    /// (on a dry run: would have been).
+    /// </summary>
+    public bool Bootstrapped { get; init; }
 }
 
 /// <summary>
-/// Syncs one database to its target, once (M.SCHD-T69). Change Tracking is ensured on the source and the two schemas
+/// Syncs one database to its target, once (M.SCHD-T69). A target that is missing or has no tables first gets its schema
+/// from the source through <see cref="SchemaBootstrap"/> and then a full copy (M.SCHD-T72); a target with tables is never
+/// altered, so a mismatch stays a failure. Change Tracking is ensured on the source and the two schemas
 /// compared (a mismatch fails the database with nothing written). The source's change-tracking version and the UTC time
 /// are captured BEFORE any row is read, so a write made during the run is picked up by the next one. A database whose
 /// version still equals the watermark, and whose fallback tables are all cheaply unchanged, is <c>unchanged</c>.
@@ -75,6 +83,18 @@ public sealed class DatabaseSyncRunner(DbSyncSettings settings, WatermarkStore w
             using var source = new SqlConnection(database.SourceConnectionString(settings.ConnectTimeoutSeconds));
             using var target = new SqlConnection(database.TargetConnectionString);
             source.Open();
+
+            var state = SchemaBootstrap.Probe(database.TargetConnectionString!, settings);
+            var bootstrapped = SchemaBootstrap.Needed(state);
+            if (bootstrapped)
+            {
+                var what = state == TargetSchemaState.Missing ? "missing" : "empty";
+                if (dryRun)
+                    return new DatabaseSyncResult(name, targetKey, DatabaseSyncOutcome.Succeeded, null, null, tables,
+                        $"dry run: target is {what}, would bootstrap its schema from the source, then copy every table in full") { DryRun = true, Bootstrapped = true };
+                SchemaBootstrap.Apply(database, settings);
+                full = true;
+            }
             target.Open();
 
             var report = ChangeTrackingSetup.Ensure(source, settings, dryRun);
@@ -168,9 +188,9 @@ public sealed class DatabaseSyncRunner(DbSyncSettings settings, WatermarkStore w
                 guard.Release();
             }
 
-            var message = $"{tables.Count} table(s) synced";
+            var message = (bootstrapped ? "schema bootstrapped; " : "") + $"{tables.Count} table(s) synced";
             watermarks.Commit(name, targetKey, startVersion, startUtc.Value, newStates, message);
-            return new DatabaseSyncResult(name, targetKey, DatabaseSyncOutcome.Succeeded, startVersion, startUtc, tables, message);
+            return new DatabaseSyncResult(name, targetKey, DatabaseSyncOutcome.Succeeded, startVersion, startUtc, tables, message) { Bootstrapped = bootstrapped };
         }
         catch (Exception ex)
         {
