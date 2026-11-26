@@ -9,6 +9,7 @@ try
         "arrange" => ArrangeCommand.Execute(new Flags(args.Skip(1))),
         "db" => DbCommand.Execute(args.Skip(1).ToArray()),
         "runs" => RunsCommand.Execute(new Flags(args.Skip(1))),
+        "dbsync" => DbSyncCommand.Execute(args.Skip(1).ToArray()),
         "help" or "--help" or "-h" or "/?" => Usage(0),
         _ => Usage(2),
     };
@@ -20,7 +21,7 @@ catch (UsageException ex)
 }
 catch (Exception ex) when (ex is Microsoft.Data.SqlClient.SqlException or InvalidOperationException or IOException or FormatException)
 {
-    // The run wrapper never gets here (it records nothing rather than fail a job); this is arrange, db and runs.
+    // The run wrapper never gets here (it records nothing rather than fail a job); this is arrange, db, runs and dbsync.
     Console.Error.WriteLine($"mindattic-scheduler: {ex.GetType().Name}: {ex.Message.Split('\n')[0].Trim()}");
     return 1;
 }
@@ -49,6 +50,12 @@ static int Usage(int code)
           runs [--job <name>] [--since <date>] [--limit N] [--summary] [--night <yyyy-MM-dd>] [--json]
               The run history, each job's last result and usual duration (--summary), or one night's
               arranged jobs against what actually ran (--night; "last" for today's).
+
+          dbsync [--db <name>]... [--full] [--dry-run] [--json]
+              Syncs every enabled database that dbsync.json gives a target, maxParallelDatabases at a
+              time, and logs one line each (also to dbsync.log). --db picks databases, --full ignores the
+              watermark, --dry-run plans with no DDL or DML on either side. Exits 0 when every database
+              synced, was unchanged or is not configured, 1 when any failed, 3 on a schema mismatch.
         """);
     return code;
 }

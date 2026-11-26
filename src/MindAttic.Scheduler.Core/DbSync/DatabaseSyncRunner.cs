@@ -29,7 +29,14 @@ public sealed record DatabaseSyncResult(
     long? StartVersion,
     DateTime? StartUtc,
     IReadOnlyList<DatabaseSyncTable> Tables,
-    string? Message);
+    string? Message)
+{
+    /// <summary>True when the run failed because the source and target schemas differ (nothing was written).</summary>
+    public bool SchemaMismatch { get; init; }
+
+    /// <summary>True when this was a dry run: <see cref="Tables"/> is the plan and nothing was written to either side.</summary>
+    public bool DryRun { get; init; }
+}
 
 /// <summary>
 /// Syncs one database to its target, once (M.SCHD-T69). Change Tracking is ensured on the source and the two schemas
@@ -47,8 +54,13 @@ public sealed class DatabaseSyncRunner(DbSyncSettings settings, WatermarkStore w
     /// <summary>Runs right after the start version and time are captured, before any row is read (a test hook).</summary>
     public Action? AfterStartCaptured { get; init; }
 
-    /// <summary>Syncs <paramref name="database"/>, which must have a target. Never throws for the database's own failures.</summary>
-    public DatabaseSyncResult Run(DbSyncDatabase database)
+    /// <summary>
+    /// Syncs <paramref name="database"/>, which must have a target. Never throws for the database's own failures.
+    /// <paramref name="full"/> ignores the watermark (every table is copied in full). <paramref name="dryRun"/> reads the
+    /// catalogs, the skip check and the per-table plan with no DDL or DML on either side and no watermark written; the
+    /// Change Tracking setup it would run is reported, not applied.
+    /// </summary>
+    public DatabaseSyncResult Run(DbSyncDatabase database, bool full = false, bool dryRun = false)
     {
         if (!database.IsConfigured)
             throw new ArgumentException($"{database.Name} has no target to sync to.", nameof(database));
@@ -65,12 +77,12 @@ public sealed class DatabaseSyncRunner(DbSyncSettings settings, WatermarkStore w
             source.Open();
             target.Open();
 
-            var report = ChangeTrackingSetup.Ensure(source, settings);
+            var report = ChangeTrackingSetup.Ensure(source, settings, dryRun);
             var sourceCatalog = TableCatalog.Read(source);
             var targetCatalog = TableCatalog.Read(target);
             if (TableCatalog.Compare(sourceCatalog, targetCatalog, $"{name} (source)", targetKey) is { } mismatch)
-                return Failed(mismatch.ToString());
-            if (sourceCatalog.TemporalPairs.Count > 0 && TemporalPairSync.Repair(target, sourceCatalog, settings).Count > 0)
+                return Failed(mismatch.ToString()) with { SchemaMismatch = true };
+            if (!dryRun && sourceCatalog.TemporalPairs.Count > 0 && TemporalPairSync.Repair(target, sourceCatalog, settings).Count > 0)
                 targetCatalog = TableCatalog.Read(target);
 
             using (var cmd = new SqlCommand("SELECT CHANGE_TRACKING_CURRENT_VERSION()", source) { CommandTimeout = settings.CommandTimeoutSeconds })
@@ -78,9 +90,9 @@ public sealed class DatabaseSyncRunner(DbSyncSettings settings, WatermarkStore w
             startUtc = DateTime.UtcNow;
             AfterStartCaptured?.Invoke();
 
-            var watermark = watermarks.Get(name, targetKey);
+            var watermark = full ? null : watermarks.Get(name, targetKey);
             var lastVersion = watermark?.LastVersion;
-            var states = watermarks.TableStates(name, targetKey).ToDictionary(s => s.TableName, StringComparer.Ordinal);
+            var states = (full ? [] : watermarks.TableStates(name, targetKey)).ToDictionary(s => s.TableName, StringComparer.Ordinal);
             var tracking = report.Tables.ToDictionary(t => t.Key, StringComparer.Ordinal);
 
             bool NeedsFullCopy(string key) =>
@@ -90,13 +102,32 @@ public sealed class DatabaseSyncRunner(DbSyncSettings settings, WatermarkStore w
                 !report.Tracked.Any(t => NeedsFullCopy(t.Key)) &&
                 report.Fallback.All(t => HashDiffTableSync.Unchanged(source, sourceCatalog, targetCatalog, t.Key, states.GetValueOrDefault(t.Key), settings) is not null))
             {
-                watermarks.Commit(name, targetKey, startVersion, startUtc.Value, message: "unchanged");
-                return new DatabaseSyncResult(name, targetKey, DatabaseSyncOutcome.Unchanged, startVersion, startUtc, tables, "unchanged since the last run");
+                if (!dryRun) watermarks.Commit(name, targetKey, startVersion, startUtc.Value, message: "unchanged");
+                return new DatabaseSyncResult(name, targetKey, DatabaseSyncOutcome.Unchanged, startVersion, startUtc, tables, "unchanged since the last run") { DryRun = dryRun };
             }
 
             var pairs = sourceCatalog.TemporalPairs.ToDictionary(p => p.CurrentKey, StringComparer.Ordinal);
             var histories = sourceCatalog.TemporalPairs.Select(p => p.HistoryKey).ToHashSet(StringComparer.Ordinal);
             var newStates = new List<DbSyncTableState>();
+
+            if (dryRun)
+            {
+                foreach (var table in sourceCatalog.Tables.Values.OrderBy(t => t.Key, StringComparer.Ordinal))
+                {
+                    var key = table.Key;
+                    if (histories.Contains(key)) continue;
+                    var tracked = tracking.TryGetValue(key, out var ct) && ct.Status == ChangeTrackingStatus.Tracked;
+                    var method = pairs.TryGetValue(key, out var pair) ? "temporal"
+                        : !tracked ? HashDiffTableSync.Method
+                        : NeedsFullCopy(key) ? "full"
+                        : "changetracking";
+                    if (pair is not null) tables.Add(new DatabaseSyncTable(pair.HistoryKey, HashDiffTableSync.Method, 0, 0));
+                    tables.Add(new DatabaseSyncTable(key, method, 0, 0));
+                }
+                var setup = report.Statements.Count > 0 ? $"; Change Tracking setup not applied: {report.Statements.Count} statement(s)" : "";
+                return new DatabaseSyncResult(name, targetKey, DatabaseSyncOutcome.Succeeded, startVersion, startUtc, tables,
+                    $"dry run: {tables.Count} table(s) would sync{setup}") { DryRun = true };
+            }
 
             using (var guard = TargetConstraintGuard.Engage(target, sourceCatalog.Tables.Keys, settings))
             {
@@ -148,8 +179,8 @@ public sealed class DatabaseSyncRunner(DbSyncSettings settings, WatermarkStore w
 
         DatabaseSyncResult Failed(string message)
         {
-            watermarks.Fail(name, targetKey, message);
-            return new DatabaseSyncResult(name, targetKey, DatabaseSyncOutcome.Failed, startVersion, startUtc, tables, message);
+            if (!dryRun) watermarks.Fail(name, targetKey, message);
+            return new DatabaseSyncResult(name, targetKey, DatabaseSyncOutcome.Failed, startVersion, startUtc, tables, message) { DryRun = dryRun };
         }
     }
 }
