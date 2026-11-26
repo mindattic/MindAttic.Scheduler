@@ -14,7 +14,7 @@
     {
       "name": "Launcher.NightlyBackup",
       "description": "Launcher nightly backup, keeping the newest 30. Overnight, at the slot Scheduler.Arrange gives it (one job at a time). Runs while you are logged on; a missed slot runs as soon as the machine is next available.",
-      "command": "\"C:\\Apps\\MindAttic.Launcher\\MindAttic.Launcher.exe\" backup --keep 30",
+      "command": "\"R:\\MindAttic\\Apps\\MindAttic.Launcher\\Release\\MindAttic.Launcher.exe\" backup --keep 30",
       "schedule": { "daily": "auto" },
       "estimate": "00:30:00",
       "replaces": ["\\MindAttic\\Launcher\\MindAtticLauncherNightlyBackup", "MindAtticLauncherNightlyBackup"]
