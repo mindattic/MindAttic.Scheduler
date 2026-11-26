@@ -16,11 +16,14 @@ public sealed class RunLogTests
 
     private SchedulerDb Db() => new(ConnectionString, "test");
 
+    // IgnoreInaccessible: a full SQL Server instance installed alongside LocalDB has folders a normal
+    // user can't list (MSSQL16.MSSQLSERVER\MSSQL\Backup), and SearchOption.AllDirectories throws on them.
     private static bool LocalDbInstalled()
     {
         var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft SQL Server");
         return Directory.Exists(root) &&
-            Directory.EnumerateFiles(root, "SqlLocalDB.exe", SearchOption.AllDirectories).Any();
+            Directory.EnumerateFiles(root, "SqlLocalDB.exe",
+                new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true }).Any();
     }
 
     [SetUp]
