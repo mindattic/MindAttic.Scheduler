@@ -139,6 +139,7 @@ mindattic-scheduler run <job> [--exclusive] -- <command line>
 mindattic-scheduler arrange [--optimize] [--dry-run] [--json] [--no-install]
 mindattic-scheduler db migrate
 mindattic-scheduler runs [--job <name>] [--since <date>] [--summary] [--night yyyy-MM-dd] [--json]
+mindattic-scheduler dbsync [--db <name>]... [--full] [--dry-run] [--json]
 ```
 
 - `run`: the run wrapper above.
@@ -150,6 +151,58 @@ mindattic-scheduler runs [--job <name>] [--since <date>] [--summary] [--night yy
 - `runs`: reads the run log. `--job` and `--since` filter it, `--summary` gives each job's usual
   duration and last result, `--night` shows one night's planned slots against what actually ran,
   `--json` for the dashboard.
+- `dbsync`: syncs the local SQL Server databases to their remote copies; see [Database sync](#database-sync).
+
+## Database sync
+
+`mindattic-scheduler dbsync` (M.SCHD-T60) keeps a remote SQL Server (the Hetzner host, once it exists;
+any SQL Server works) in step with the databases on this PC. The job **Database.SyncToRemote** runs it
+nightly at the slot the arranger gives it, and is registered **disabled** until a target is configured.
+
+How a run works, per database (each independent; one failing doesn't stop the others):
+
+1. **Change Tracking** is turned on for the source database (retention `changeRetentionDays`) and for
+   every table with a primary key. Turning it on for a table makes that table's next sync a full copy.
+2. The source and target schemas are compared. **The schema is never altered**: a difference fails
+   that database with nothing written (exit code 3). A target that doesn't exist, or has no tables, is
+   **bootstrapped** first: the schema alone is copied with sqlpackage (no data, nothing dropped, no
+   users or permissions), then every table is copied in full.
+3. The watermark is captured **at the start of the run**: the source's change-tracking version and the
+   UTC time. Rows written while the run is going are after that version, so the next run picks them up.
+4. The database is **skipped** when nothing changed since the last watermark.
+5. Otherwise each table syncs by the cheapest exact route:
+   - tracked tables: only the rows inserted, updated or deleted since the watermark;
+   - the first run, a newly tracked table, or a watermark older than the retention: a full copy;
+   - tables without a primary key, and temporal history tables: a hash comparison (append-only tails
+     copied alone, otherwise per-key-range row hashes);
+   - system-versioned tables: versioning is suspended on the target, history and current tables are
+     synced with their period columns exactly, then versioning is restored (repaired on the next run
+     if a run died half way). VECTOR values are copied exactly.
+
+   Foreign keys and triggers on the target are suspended during the writes and re-checked after.
+6. Only when the whole database succeeded is the start watermark saved (in the Scheduler's own
+   database, tables `DbSyncWatermark` and `DbSyncTableState`). A failure keeps the old one.
+
+Settings: `%APPDATA%\MindAttic\MindAttic.Scheduler\dbsync.json`, every field optional; see
+[docs/dbsync.example.json](docs/dbsync.example.json) for the fields and their defaults
+(`changeRetentionDays`, `commandTimeoutSeconds`, `connectTimeoutSeconds`, `bulkBatchSize`,
+`maxParallelDatabases`, `hashDiffRangeRows`, `strongHashMaxMB`, `sqlPackagePath`,
+`schemaBootstrapTimeoutSeconds`, `schemaExtractProperties`, `schemaPublishProperties`). The database list
+is built in (LocalDB for most; `localhost` for MindAttic.Tickets, MindAttic.Orchestrator and
+IdiotProof_History); a `databases` entry only names what it changes. `targetConnection` is a full
+connection string, or `{ProviderName}` to sign in as that service principal from
+`%APPDATA%\MindAttic\Database\providers.json`. A database with no target is reported "not configured".
+
+Flags: `--db` limits the run to the named databases; `--full` ignores the watermark; `--dry-run` writes
+nothing anywhere; `--json` prints the results. Exit codes: 0 fine, 1 a database failed, 2 usage,
+3 a schema mismatch. Log: `%LOCALAPPDATA%\MindAttic\Scheduler\dbsync.log`.
+
+To turn it on once the remote host is up:
+
+1. Put each database's `targetConnection` in dbsync.json.
+2. Run `mindattic-scheduler dbsync --dry-run` and check every line, then `mindattic-scheduler dbsync`
+   once by hand (the first run copies everything, so it takes a while).
+3. Set `"enabled": true` on Database.SyncToRemote in jobs.json and run `install.ps1`.
 
 ## Jobs made at runtime
 

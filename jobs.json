@@ -149,6 +149,16 @@
       "timeLimit": "04:00:00"
     },
     {
+      "name": "Database.SyncToRemote",
+      "description": "Syncs the local SQL Server databases to their remote copies (M.SCHD-T60; the Hetzner host once it exists): mindattic-scheduler dbsync. Change Tracking watermark captured at each run's START, so rows written during a run are caught by the next; unchanged databases are skipped; the first run (and a missing or empty target, whose schema is bootstrapped) copies everything. Never alters a schema. DISABLED until the remote host is up and dbsync.json names its targets (README, Database sync). Overnight, at the slot Scheduler.Arrange gives it. Log: %LOCALAPPDATA%\\MindAttic\\Scheduler\\dbsync.log.",
+      "command": "\"C:\\Apps\\MindAttic.Scheduler\\mindattic-scheduler.exe\" dbsync",
+      "workingDirectory": "C:\\Apps\\MindAttic.Scheduler",
+      "schedule": { "daily": "auto" },
+      "estimate": "00:30:00",
+      "timeLimit": "06:00:00",
+      "enabled": false
+    },
+    {
       "name": "Prose.GLMZ.Wiki.Sync",
       "description": "Keeps the GLMZ wiki (mindattic.com/glmz) and the Prose database in step, by push (PRS-T1064; was every 5 minutes, PRS-T1049, and nightly before that, M.SCHD-T40). Started at logon and kept running: Prose tools/wiki/wiki-watch.ps1 -Daemon is woken within seconds by the Prose Hub's change stamp (written after every save that changes what the wiki shows) and looks at the wiki for people's edits every minute (one API call; the wiki's host cannot call this PC). Prose changed: once writing has been quiet 2 minutes (at most 30), it reconciles, then runs sync-wiki.ps1. The wiki changed: wikireconcile.py turns the edits into proposals on GLMZ Wiki:Reconciliation and holds those pages. A full sync and check still run once a day. Logs: watch.log, sync.log, out\\reconcile.md in %LOCALAPPDATA%\\MindAttic\\Prose\\wiki\\glmz.",
       "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"D:\\Projects\\MindAttic\\Prose\\tools\\wiki\\wiki-watch.ps1\" -Universe glmz -Daemon",
