@@ -106,8 +106,8 @@
     {
       "name": "UnstuckTaskbar",
       "description": "UnstuckTaskbar tray icon and global hotkey for /unstuck: started at logon and kept running (no time limit, restarted if it fails).",
-      "command": "\"C:\\Apps\\Unstuck\\UnstuckTaskbar.exe\"",
-      "workingDirectory": "C:\\Apps\\Unstuck",
+      "command": "\"R:\\MindAttic\\Apps\\Unstuck\\Release\\UnstuckTaskbar.exe\"",
+      "workingDirectory": "R:\\MindAttic\\Apps\\Unstuck\\Release",
       "schedule": { "atLogon": true },
       "keepRunning": true,
       "replaces": ["\\MindAttic\\UnstuckTaskbar\\Logon"]

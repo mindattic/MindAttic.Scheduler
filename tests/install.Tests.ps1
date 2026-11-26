@@ -89,8 +89,8 @@ Describe 'jobs.json' {
         $jobs = Read-JobManifest (Join-Path $PSScriptRoot '..\jobs.json')
         $job = $jobs | Where-Object Name -eq 'UnstuckTaskbar'
         $job | Should -Not -BeNullOrEmpty
-        $job.Command | Should -Be '"C:\Apps\Unstuck\UnstuckTaskbar.exe"'
-        $job.WorkingDirectory | Should -Be 'C:\Apps\Unstuck'
+        $job.Command | Should -Be '"R:\MindAttic\Apps\Unstuck\Release\UnstuckTaskbar.exe"'
+        $job.WorkingDirectory | Should -Be 'R:\MindAttic\Apps\Unstuck\Release'
         @($job.Schedule).Count | Should -Be 1
         $job.Schedule[0].atLogon | Should -BeTrue
         $job.KeepRunning | Should -BeTrue
