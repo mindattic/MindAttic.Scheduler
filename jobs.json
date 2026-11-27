@@ -187,6 +187,14 @@
       "enabled": false
     },
     {
+      "name": "Tickets.Reconcile",
+      "description": "Ticket database nightly reconcile (M.TIX-T416): rebuilds data/Tickets.db whole from SQL Server, checks row counts and every ticket's checksum against it, rebuilds or reorganizes fragmented indexes and updates statistics. Exits non-zero on a mismatch.",
+      "command": "\"C:\\Users\\ryand\\.dotnet\\tools\\tickets.exe\" db reconcile",
+      "workingDirectory": "D:\\Projects\\MindAttic",
+      "schedule": { "daily": "00:30" },
+      "timeLimit": "01:00:00"
+    },
+    {
       "name": "Scheduler.Arrange",
       "description": "Arranges tonight's overnight jobs (M.SCHD-T42): mindattic-scheduler arrange keeps the \"daily\": \"auto\" slots in %LOCALAPPDATA%\\MindAttic\\Scheduler\\arrangement.json, re-placing them from each job's measured run time (else its estimate) only when something is wrong - a new or removed job, two starts colliding, or a predicted finish after 08:00 - then reruns install.ps1 so Task Scheduler has the new times. Pinned at 23:30, before the window it arranges.",
       "command": "\"R:\\MindAttic\\Apps\\MindAttic.Scheduler\\Release\\mindattic-scheduler.exe\" arrange",
