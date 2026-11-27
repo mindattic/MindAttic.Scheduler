@@ -127,7 +127,8 @@
       "workingDirectory": "D:\\Projects\\MindAttic\\GridGame.Unity",
       "schedule": { "daily": "auto" },
       "estimate": "02:00:00",
-      "timeLimit": "06:00:00"
+      "timeLimit": "06:00:00",
+      "enabled": false
     },
     {
       "name": "Azure.BackupNightly",
